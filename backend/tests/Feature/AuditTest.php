@@ -1,0 +1,2 @@
+<?php
+namespace Tests\Feature;use App\Domain\Audit\Services\AuditService;use App\Domain\Users\Models\User;use Illuminate\Foundation\Testing\RefreshDatabase;use Tests\TestCase;class AuditTest extends TestCase{use RefreshDatabase;public function test_audit_service_creates_log():void{$u=User::factory()->create();app(AuditService::class)->record('test.event',$u,$u,['safe'=>'value']);$this->assertDatabaseHas('audit_logs',['actor_user_id'=>$u->id,'event'=>'test.event']);}}

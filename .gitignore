@@ -1,0 +1,12 @@
+backend/vendor/
+backend/.env
+backend/storage/*.key
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+ai-service/.venv/
+__pycache__/
+.pytest_cache/
+.idea/
+.vscode/
+.DS_Store
