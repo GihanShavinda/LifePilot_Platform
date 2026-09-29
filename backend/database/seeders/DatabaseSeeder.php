@@ -1,2 +1,15 @@
 <?php
-namespace Database\Seeders;use App\Domain\Auth\Enums\HouseholdRole;use App\Domain\Notifications\Models\NotificationPreference;use App\Domain\Profiles\Models\Profile;use App\Domain\Users\Models\Household;use App\Domain\Users\Models\HouseholdMember;use App\Domain\Users\Models\User;use Illuminate\Database\Seeder;class DatabaseSeeder extends Seeder{public function run():void{$u=User::factory()->create(['name'=>'LifePilot Demo','email'=>'demo@lifepilot.local','password'=>'ChangeMe!123','timezone'=>'Asia/Colombo']);$h=Household::create(['name'=>'Demo Household']);HouseholdMember::create(['household_id'=>$h->id,'user_id'=>$u->id,'role'=>HouseholdRole::Owner]);Profile::create(['user_id'=>$u->id,'first_name'=>'LifePilot','last_name'=>'Demo','locale'=>'en']);NotificationPreference::create(['user_id'=>$u->id,'email_enabled'=>true,'push_enabled'=>true,'reminder_enabled'=>true,'digest_enabled'=>false]);}}
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $this->call([
+            DocumentReferenceSeeder::class,
+        ]);
+    }
+}

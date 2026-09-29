@@ -1,0 +1,16 @@
+# P2 Acceptance Checklist
+- Upload PDF/JPG/PNG/DOCX/TXT
+- Reject invalid MIME / files above configured limit
+- Generate SHA-256 checksum
+- Private storage path only
+- Household/object authorization
+- Rename / categorize / issuer / date / tags
+- Replace creates immutable version history
+- Archive / restore / soft delete
+- Search and metadata filters
+- Signed download link
+- Audit upload/download/delete and other document mutations
+- Queue processing record + baseline job
+- Drag/drop UI, upload progress, filters, preview drawer, metadata editor, badges
+- Feature tests for upload, MIME, authorization, versioning, archive/restore, signed access, search
+- No AI/OCR implementation
