@@ -1,3 +1,4 @@
+import { TasksPage } from "../features/tasks/TasksPage";
 import { createBrowserRouter } from "react-router-dom";
 import { ProtectedRoute } from "../features/auth/ProtectedRoute";
 import { LoginPage } from "../features/auth/LoginPage";
@@ -18,6 +19,7 @@ export const router = createBrowserRouter([
       { path: "/", element: <DashboardPage /> },
       { path: "/settings", element: <SettingsPage /> },
       { path: "/documents", element: <DocumentsPage /> },
+      { path: "/tasks", element: <TasksPage /> },
     ],
   },
 ]);

@@ -39,13 +39,8 @@ class DocumentController
                 'category',
                 'source',
                 'tags',
+                'latestExtraction',
             ]);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Soft Deleted Documents
-        |--------------------------------------------------------------------------
-        */
 
         if ($request->boolean('include_deleted')) {
             $query->withTrashed();
@@ -53,210 +48,101 @@ class DocumentController
             $query->withoutTrashed();
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Metadata Search
-        |--------------------------------------------------------------------------
-        |
-        | Use whereLike() instead of PostgreSQL-specific ILIKE.
-        |
-        | This keeps the query portable across:
-        |
-        | - PostgreSQL
-        | - SQLite tests
-        | - MySQL
-        |
-        */
-
-        $search = $request
-            ->string('search')
-            ->trim()
-            ->value();
+        $search = $request->string('search')->trim()->value();
 
         if ($search !== '') {
             $query->where(function ($subQuery) use ($search) {
-                $pattern = '%' . $search . '%';
+                $pattern = '%'.$search.'%';
 
                 $subQuery
-                    ->whereLike(
-                        'title',
-                        $pattern,
-                        caseSensitive: false
-                    )
-                    ->orWhereLike(
-                        'original_filename',
-                        $pattern,
-                        caseSensitive: false
-                    )
-                    ->orWhereLike(
-                        'issuer',
-                        $pattern,
-                        caseSensitive: false
-                    );
+                    ->whereLike('title', $pattern, caseSensitive: false)
+                    ->orWhereLike('original_filename', $pattern, caseSensitive: false)
+                    ->orWhereLike('issuer', $pattern, caseSensitive: false);
             });
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Category Filter
-        |--------------------------------------------------------------------------
-        */
 
         if ($category = $request->get('category')) {
             $query->whereHas(
                 'category',
-                function ($categoryQuery) use ($category) {
-                    $categoryQuery->where(
-                        'slug',
-                        $category
-                    );
-                }
+                fn ($categoryQuery) => $categoryQuery->where('slug', $category)
             );
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Issuer Filter
-        |--------------------------------------------------------------------------
-        */
 
         if ($issuer = $request->get('issuer')) {
             $query->whereLike(
                 'issuer',
-                '%' . $issuer . '%',
+                '%'.$issuer.'%',
                 caseSensitive: false
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Status Filter
-        |--------------------------------------------------------------------------
-        */
-
         if ($status = $request->get('status')) {
-            $query->where(
-                'status',
-                $status
-            );
+            $query->where('status', $status);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Document Date Filters
-        |--------------------------------------------------------------------------
-        */
-
         if ($dateFrom = $request->get('date_from')) {
-            $query->whereDate(
-                'document_date',
-                '>=',
-                $dateFrom
-            );
+            $query->whereDate('document_date', '>=', $dateFrom);
         }
 
         if ($dateTo = $request->get('date_to')) {
-            $query->whereDate(
-                'document_date',
-                '<=',
-                $dateTo
-            );
+            $query->whereDate('document_date', '<=', $dateTo);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Pagination
-        |--------------------------------------------------------------------------
-        */
-
         $perPage = min(
-            max(
-                (int) $request->get(
-                    'per_page',
-                    15
-                ),
-                1
-            ),
+            max((int) $request->get('per_page', 15), 1),
             100
         );
 
-        $page = $query
-            ->latest()
-            ->paginate($perPage);
+        $page = $query->latest()->paginate($perPage);
 
         return ApiResponse::success(
-            DocumentResource::collection(
-                $page->items()
-            ),
+            DocumentResource::collection($page->items()),
             200,
             [
-                'current_page' =>
-                    $page->currentPage(),
-
-                'last_page' =>
-                    $page->lastPage(),
-
-                'per_page' =>
-                    $page->perPage(),
-
-                'total' =>
-                    $page->total(),
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
+                'per_page' => $page->perPage(),
+                'total' => $page->total(),
             ]
         );
     }
 
-    public function store(
-        UploadDocumentRequest $request
-    ): JsonResponse {
+    public function store(UploadDocumentRequest $request): JsonResponse
+    {
         $user = $request->user();
+        $householdId = $this->authz->householdId($user);
 
-        $householdId =
-            $this->authz->householdId(
-                $user
-            );
-
-        $document =
-            $this->service->upload(
-                $user,
-                $householdId,
-                $request->file('file'),
-                $request->validated()
-            );
+        $document = $this->service->upload(
+            $user,
+            $householdId,
+            $request->file('file'),
+            $request->validated()
+        );
 
         $this->audit->record(
             'document.uploaded',
             $user,
             $document,
             [
-                'checksum' =>
-                    $document->checksum,
-
-                'mime_type' =>
-                    $document->mime_type,
+                'checksum' => $document->checksum,
+                'mime_type' => $document->mime_type,
             ]
         );
 
-        return ApiResponse::success(
-            [
-                'document' =>
-                    new DocumentResource(
-                        $document
-                    ),
-            ],
-            201
-        );
+        return ApiResponse::success([
+            'document' => new DocumentResource($document),
+        ], 201);
     }
 
-    public function show(
-        Request $request,
-        int $id
-    ): JsonResponse {
+    public function show(Request $request, int $id): JsonResponse
+    {
         $document = Document::withTrashed()
             ->with([
                 'category',
                 'source',
                 'tags',
                 'versions',
+                'latestExtraction',
             ])
             ->findOrFail($id);
 
@@ -265,23 +151,17 @@ class DocumentController
             $document
         );
 
-        return ApiResponse::success(
-            [
-                'document' =>
-                    new DocumentResource(
-                        $document
-                    ),
-            ]
-        );
+        return ApiResponse::success([
+            'document' => new DocumentResource($document),
+        ]);
     }
 
     public function update(
         UpdateDocumentRequest $request,
         int $id
     ): JsonResponse {
-        $document =
-            Document::withTrashed()
-                ->findOrFail($id);
+        $document = Document::withTrashed()
+            ->findOrFail($id);
 
         $this->authz->ensure(
             $request->user(),
@@ -291,65 +171,24 @@ class DocumentController
 
         $data = $request->validated();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Category
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            array_key_exists(
-                'category',
-                $data
-            )
-        ) {
-            $document->document_category_id =
-                $data['category']
-                    ? DocumentCategory::where(
-                        'slug',
-                        $data['category']
-                    )->value('id')
-                    : null;
+        if (array_key_exists('category', $data)) {
+            $document->document_category_id = $data['category']
+                ? DocumentCategory::where(
+                    'slug',
+                    $data['category']
+                )->value('id')
+                : null;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Editable Metadata
-        |--------------------------------------------------------------------------
-        */
-
-        foreach (
-            [
-                'title',
-                'document_date',
-                'issuer',
-            ] as $field
-        ) {
-            if (
-                array_key_exists(
-                    $field,
-                    $data
-                )
-            ) {
-                $document->{$field} =
-                    $data[$field];
+        foreach (['title', 'document_date', 'issuer'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $document->{$field} = $data[$field];
             }
         }
 
         $document->save();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Tags
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            array_key_exists(
-                'tags',
-                $data
-            )
-        ) {
+        if (array_key_exists('tags', $data)) {
             $this->service->syncTags(
                 $document,
                 $data['tags'],
@@ -363,27 +202,24 @@ class DocumentController
             $document
         );
 
-        return ApiResponse::success(
-            [
-                'document' =>
-                    new DocumentResource(
-                        $document->fresh([
-                            'category',
-                            'source',
-                            'tags',
-                            'versions',
-                        ])
-                    ),
-            ]
-        );
+        return ApiResponse::success([
+            'document' => new DocumentResource(
+                $document->fresh([
+                    'category',
+                    'source',
+                    'tags',
+                    'versions',
+                    'latestExtraction',
+                ])
+            ),
+        ]);
     }
 
     public function replace(
         ReplaceDocumentRequest $request,
         int $id
     ): JsonResponse {
-        $document =
-            Document::findOrFail($id);
+        $document = Document::findOrFail($id);
 
         $this->authz->ensure(
             $request->user(),
@@ -391,41 +227,33 @@ class DocumentController
             true
         );
 
-        $document =
-            $this->service->replace(
-                $document,
-                $request->user(),
-                $request->file('file')
-            );
+        $document = $this->service->replace(
+            $document,
+            $request->user(),
+            $request->file('file')
+        );
 
         $this->audit->record(
             'document.replaced',
             $request->user(),
             $document,
             [
-                'version' =>
-                    $document
-                        ->versions()
-                        ->max('version_number'),
+                'version' => $document
+                    ->versions()
+                    ->max('version_number'),
             ]
         );
 
-        return ApiResponse::success(
-            [
-                'document' =>
-                    new DocumentResource(
-                        $document
-                    ),
-            ]
-        );
+        return ApiResponse::success([
+            'document' => new DocumentResource($document),
+        ]);
     }
 
     public function archive(
         Request $request,
         int $id
     ): JsonResponse {
-        $document =
-            Document::findOrFail($id);
+        $document = Document::findOrFail($id);
 
         $this->authz->ensure(
             $request->user(),
@@ -434,11 +262,8 @@ class DocumentController
         );
 
         $document->update([
-            'status' =>
-                DocumentStatus::Archived,
-
-            'archived_at' =>
-                now(),
+            'status' => DocumentStatus::Archived,
+            'archived_at' => now(),
         ]);
 
         $this->audit->record(
@@ -447,23 +272,17 @@ class DocumentController
             $document
         );
 
-        return ApiResponse::success(
-            [
-                'document' =>
-                    new DocumentResource(
-                        $document
-                    ),
-            ]
-        );
+        return ApiResponse::success([
+            'document' => new DocumentResource($document),
+        ]);
     }
 
     public function restoreArchive(
         Request $request,
         int $id
     ): JsonResponse {
-        $document =
-            Document::withTrashed()
-                ->findOrFail($id);
+        $document = Document::withTrashed()
+            ->findOrFail($id);
 
         $this->authz->ensure(
             $request->user(),
@@ -476,11 +295,8 @@ class DocumentController
         }
 
         $document->update([
-            'status' =>
-                DocumentStatus::Active,
-
-            'archived_at' =>
-                null,
+            'status' => DocumentStatus::Active,
+            'archived_at' => null,
         ]);
 
         $this->audit->record(
@@ -489,22 +305,16 @@ class DocumentController
             $document
         );
 
-        return ApiResponse::success(
-            [
-                'document' =>
-                    new DocumentResource(
-                        $document
-                    ),
-            ]
-        );
+        return ApiResponse::success([
+            'document' => new DocumentResource($document),
+        ]);
     }
 
     public function destroy(
         Request $request,
         int $id
     ): JsonResponse {
-        $document =
-            Document::findOrFail($id);
+        $document = Document::findOrFail($id);
 
         $this->authz->ensure(
             $request->user(),
@@ -520,59 +330,42 @@ class DocumentController
 
         $document->delete();
 
-        return ApiResponse::success(
-            [
-                'message' =>
-                    'Document moved to trash.',
-            ]
-        );
+        return ApiResponse::success([
+            'message' => 'Document moved to trash.',
+        ]);
     }
 
     public function signedUrl(
         Request $request,
         int $id
     ): JsonResponse {
-        $document =
-            Document::findOrFail($id);
+        $document = Document::findOrFail($id);
 
         $this->authz->ensure(
             $request->user(),
             $document
         );
 
-        $version =
-            $document
-                ->versions()
-                ->latest(
-                    'version_number'
-                )
-                ->firstOrFail();
+        $version = $document
+            ->versions()
+            ->latest('version_number')
+            ->firstOrFail();
 
-        $url =
-            $this->storage
-                ->signedUrl(
-                    $version
-                );
+        $url = $this->storage->signedUrl($version);
 
         $this->audit->record(
             'document.download_link_created',
             $request->user(),
             $document,
             [
-                'version_id' =>
-                    $version->id,
+                'version_id' => $version->id,
             ]
         );
 
-        return ApiResponse::success(
-            [
-                'url' =>
-                    $url,
-
-                'expires_in_seconds' =>
-                    600,
-            ]
-        );
+        return ApiResponse::success([
+            'url' => $url,
+            'expires_in_seconds' => 600,
+        ]);
     }
 
     public function download(
@@ -580,46 +373,35 @@ class DocumentController
         int $document,
         int $version
     ): StreamedResponse {
-        $documentModel =
-            Document::findOrFail(
-                $document
-            );
+        $documentModel = Document::findOrFail($document);
 
         $this->authz->ensure(
             $request->user(),
             $documentModel
         );
 
-        $documentVersion =
-            $documentModel
-                ->versions()
-                ->whereKey(
-                    $version
-                )
-                ->firstOrFail();
+        $documentVersion = $documentModel
+            ->versions()
+            ->whereKey($version)
+            ->firstOrFail();
 
         $this->audit->record(
             'document.downloaded',
             $request->user(),
             $documentModel,
             [
-                'version_id' =>
-                    $documentVersion->id,
+                'version_id' => $documentVersion->id,
             ]
         );
 
-        $disk = Storage::disk(
-            $documentVersion->storage_disk
-        );
+        $disk = Storage::disk($documentVersion->storage_disk);
 
         return response()->streamDownload(
-            static function () use ($disk, $documentVersion): void {
-                $stream = $disk->readStream(
-                    $documentVersion->storage_path
-                );
+            function () use ($disk, $documentVersion): void {
+                $stream = $disk->readStream($documentVersion->storage_path);
 
                 if ($stream === false) {
-                    return;
+                    abort(404);
                 }
 
                 fpassthru($stream);
@@ -627,24 +409,16 @@ class DocumentController
             },
             $documentVersion->original_filename,
             [
-                'Content-Type' =>
-                    $documentVersion->mime_type,
+                'Content-Type' => $documentVersion->mime_type,
             ]
         );
     }
 
     public function categories(): JsonResponse
     {
-        return ApiResponse::success(
-            [
-                'categories' =>
-                    DocumentCategory::orderBy(
-                        'name'
-                    )->get([
-                        'slug',
-                        'name',
-                    ]),
-            ]
-        );
+        return ApiResponse::success([
+            'categories' => DocumentCategory::orderBy('name')
+                ->get(['slug', 'name']),
+        ]);
     }
 }

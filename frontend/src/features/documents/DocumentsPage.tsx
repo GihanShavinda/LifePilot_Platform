@@ -1,2 +1,123 @@
-import {useState} from 'react';import {Link} from 'react-router-dom';import {useQuery} from '@tanstack/react-query';import {listDocuments} from './documentApi';import {DocumentUploader} from './DocumentUploader';import {DocumentPreviewDrawer} from './DocumentPreviewDrawer';
-export function DocumentsPage(){const [search,setSearch]=useState('');const [category,setCategory]=useState('');const [status,setStatus]=useState('');const [selected,setSelected]=useState<number|null>(null);const q=useQuery({queryKey:['documents',search,category,status],queryFn:()=>listDocuments({search,category,status,per_page:50})});return <main className="page"><header><div><h1>Documents</h1><p>Private household document vault with version history and auditable access.</p></div><div className="actions"><Link className="button-link secondary" to="/">Dashboard</Link></div></header><DocumentUploader/><section className="card docs-section"><div className="filters"><input placeholder="Search title, filename or issuer" value={search} onChange={e=>setSearch(e.target.value)}/><select value={category} onChange={e=>setCategory(e.target.value)}><option value="">All categories</option>{['bill','receipt','warranty','insurance','subscription','appointment','education','employment','banking','vehicle','property','medical-admin','government','other'].map(x=><option key={x} value={x}>{x}</option>)}</select><select value={status} onChange={e=>setStatus(e.target.value)}><option value="">All statuses</option><option value="active">active</option><option value="archived">archived</option></select></div>{q.isLoading?<p>Loading documents…</p>:q.data?.data.length===0?<div className="empty">No documents match the current filters.</div>:<div className="doc-grid">{q.data?.data.map(d=><button className="doc-card" key={d.id} onClick={()=>setSelected(d.id)}><div className="doc-icon">{d.mime_type.includes('pdf')?'PDF':d.mime_type.includes('image')?'IMG':d.mime_type.includes('word')?'DOCX':'TXT'}</div><div className="doc-main"><strong>{d.title}</strong><span>{d.category??'uncategorized'} · {d.issuer??'Unknown issuer'}</span><small>{d.original_filename}</small></div><span className={`badge ${d.processing_status}`}>{d.processing_status}</span></button>)}</div>}</section><DocumentPreviewDrawer id={selected} onClose={()=>setSelected(null)} onChanged={()=>q.refetch()}/></main>}
+import { useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { listDocuments } from "./documentApi";
+import { DocumentUploader } from "./DocumentUploader";
+import { DocumentPreviewDrawer } from "./DocumentPreviewDrawer";
+export function DocumentsPage() {
+  const [params] = useSearchParams();
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
+  const [status, setStatus] = useState("");
+  const [selected, setSelected] = useState<number | null>(() => {
+    const id = Number(params.get("document"));
+    return id > 0 ? id : null;
+  });
+  const q = useQuery({
+    queryKey: ["documents", search, category, status],
+    queryFn: () => listDocuments({ search, category, status, per_page: 50 }),
+  });
+  return (
+    <main className="page">
+      <header>
+        <div>
+          <h1>Documents</h1>
+          <p>
+            Private household document vault with version history and auditable
+            access.
+          </p>
+        </div>
+        <div className="actions">
+          <Link className="button-link" to="/tasks">
+            Tasks
+          </Link>
+          <Link className="button-link secondary" to="/">
+            Dashboard
+          </Link>
+        </div>
+      </header>
+      <DocumentUploader />
+      <section className="card docs-section">
+        <div className="filters">
+          <input
+            placeholder="Search title, filename or issuer"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="">All categories</option>
+            {[
+              "bill",
+              "receipt",
+              "warranty",
+              "insurance",
+              "subscription",
+              "appointment",
+              "education",
+              "employment",
+              "banking",
+              "vehicle",
+              "property",
+              "medical-admin",
+              "government",
+              "other",
+            ].map((x) => (
+              <option key={x} value={x}>
+                {x}
+              </option>
+            ))}
+          </select>
+          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">All statuses</option>
+            <option value="active">active</option>
+            <option value="archived">archived</option>
+          </select>
+        </div>
+        {q.isLoading ? (
+          <p>Loading documents…</p>
+        ) : q.data?.data.length === 0 ? (
+          <div className="empty">No documents match the current filters.</div>
+        ) : (
+          <div className="doc-grid">
+            {q.data?.data.map((d) => (
+              <button
+                className="doc-card"
+                key={d.id}
+                onClick={() => setSelected(d.id)}
+              >
+                <div className="doc-icon">
+                  {d.mime_type.includes("pdf")
+                    ? "PDF"
+                    : d.mime_type.includes("image")
+                      ? "IMG"
+                      : d.mime_type.includes("word")
+                        ? "DOCX"
+                        : "TXT"}
+                </div>
+                <div className="doc-main">
+                  <strong>{d.title}</strong>
+                  <span>
+                    {d.category ?? "uncategorized"} ·{" "}
+                    {d.issuer ?? "Unknown issuer"}
+                  </span>
+                  <small>{d.original_filename}</small>
+                </div>
+                <span className={`badge ${d.processing_status}`}>
+                  {d.processing_status}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+      <DocumentPreviewDrawer
+        id={selected}
+        onClose={() => setSelected(null)}
+        onChanged={() => q.refetch()}
+      />
+    </main>
+  );
+}

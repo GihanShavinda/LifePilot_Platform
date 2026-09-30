@@ -1,0 +1,26 @@
+# P3 Acceptance Checklist
+
+- [ ] Native text extraction runs before OCR.
+- [ ] OCR is used only when native text is insufficient.
+- [ ] PDF, image, DOCX and TXT paths are supported.
+- [ ] Deterministic parser extracts obvious fields.
+- [ ] LLM gateway stage uses JSON Schema.
+- [ ] Unsupported LLM facts are rejected by evidence grounding.
+- [ ] Prompt-like instructions inside documents are treated as untrusted data.
+- [ ] Every persisted field has value, normalized value, confidence, evidence, extractor version, model version and review status.
+- [ ] Duplicate extraction candidates are removed.
+- [ ] Contradictory values are marked for review.
+- [ ] Users can accept extracted fields.
+- [ ] Users can reject extracted fields.
+- [ ] Users can edit extracted fields.
+- [ ] Reprocess creates a new extraction version.
+- [ ] Previous extraction versions remain available.
+- [ ] Cross-household review access is forbidden.
+- [ ] Utility bill test passes.
+- [ ] Receipt test passes.
+- [ ] Warranty test passes.
+- [ ] Appointment letter test passes.
+- [ ] Noisy OCR-style text test passes.
+- [ ] Missing-field test passes.
+- [ ] Contradictory-value test passes.
+- [ ] Malicious prompt-text test passes.
