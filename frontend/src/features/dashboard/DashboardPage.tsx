@@ -7,11 +7,14 @@ export function DashboardPage() {
       <header>
         <div>
           <h1>LifePilot</h1>
-          <p>P4 obligations & task management</p>
+          <p>P5 life finance & personal admin</p>
         </div>
         <div className="actions">
           <Link className="button-link" to="/tasks">
             Tasks
+          </Link>
+          <Link className="button-link" to="/finance">
+            Finance
           </Link>
           <Link className="button-link" to="/documents">
             Documents
@@ -46,6 +49,7 @@ export function DashboardPage() {
             <li>Native/OCR document intelligence and review (P3)</li>
             <li>Human-approved obligation suggestions (P4)</li>
             <li>Today, upcoming, overdue, calendar, kanban (P4)</li>
+            <li>Tracked expenses, subscriptions, assets and warranties (P5)</li>
           </ul>
         </section>
       </div>

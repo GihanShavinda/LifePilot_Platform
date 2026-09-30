@@ -1,0 +1,15 @@
+# P5 acceptance checklist
+- [ ] All P5 migrations run without affecting existing P1–P4 data
+- [ ] API returns 401 when unauthenticated; household isolation and viewer permissions pass
+- [ ] Manual expenses CRUD and category/merchant assignment persist
+- [ ] Monthly and merchant totals stay separated by currency
+- [ ] Reviewed receipt generates preview only; confirmation produces one linked expense
+- [ ] Duplicate receipt confirmation rejected
+- [ ] Recurring expense remains forecast until explicit confirmation
+- [ ] CSV round-trip preserves date/title/amount/currency/merchant/category/description; duplicate import skipped
+- [ ] Subscription cycle cost, due date, duplicate, price change and confirmed payment
+- [ ] Cancelling tracking performs no external provider operation
+- [ ] Asset CRUD, proof-document isolation, warranty expiry and maintenance next-date
+- [ ] P4 scheduled reminder tasks generated; completed/skipped tasks receive no notifications
+- [ ] Dashboard renders spending, recurring estimates, due subscriptions, expiring warranties, purchases, asset placeholder
+- [ ] LifeFinanceTest, LifeFinanceCalculationsTest, full Laravel test suite and frontend build pass locally

@@ -1,3 +1,4 @@
+import { FinancePage } from "../features/finance/FinancePage";
 import { TasksPage } from "../features/tasks/TasksPage";
 import { createBrowserRouter } from "react-router-dom";
 import { ProtectedRoute } from "../features/auth/ProtectedRoute";
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
       { path: "/settings", element: <SettingsPage /> },
       { path: "/documents", element: <DocumentsPage /> },
       { path: "/tasks", element: <TasksPage /> },
+      { path: "/finance", element: <FinancePage /> },
     ],
   },
 ]);

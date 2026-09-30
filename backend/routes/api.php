@@ -10,6 +10,7 @@ use App\Domain\Notifications\Controllers\NotificationPreferenceController;
 use App\Domain\Profiles\Controllers\ProfileController;
 use App\Domain\Users\Controllers\HouseholdController;
 use Illuminate\Support\Facades\Route;
+use App\Domain\Finance\Controllers\{FinanceController,SubscriptionController,AssetController,FinanceCsvController,RecurringExpenseController};
 use App\Domain\Obligations\Controllers\{ObligationController,TaskController};
 
 Route::prefix('v1')->group(function () {
@@ -109,6 +110,35 @@ Route::prefix('v1')->group(function () {
         Route::delete('/tasks/{id}/dependencies/{dependencyId}', [TaskController::class, 'removeDependency']);
         Route::post('/tasks/{id}/reminders', [TaskController::class, 'addReminder']);
         Route::post('/tasks/{id}/reminders/{reminderId}/snooze', [TaskController::class, 'snoozeReminder']);
+
+        // P5 finance: all routes are Sanctum-protected and household-scoped.
+        Route::get('/finance/dashboard', [FinanceController::class, 'dashboard']);
+        Route::get('/finance/categories', [FinanceController::class, 'categories']);
+        Route::post('/finance/categories', [FinanceController::class, 'saveCategory']);
+        Route::get('/finance/expenses', [FinanceController::class, 'expenses']);
+        Route::post('/finance/expenses', [FinanceController::class, 'createExpense']);
+        Route::put('/finance/expenses/{id}', [FinanceController::class, 'updateExpense']);
+        Route::delete('/finance/expenses/{id}', [FinanceController::class, 'deleteExpense']);
+        Route::get('/finance/expenses/{id}/recurrence', [RecurringExpenseController::class, 'preview']);
+        Route::post('/finance/expenses/{id}/recurrence/confirm', [RecurringExpenseController::class, 'confirm']);
+        Route::get('/finance/expenses.csv', [FinanceCsvController::class, 'export']);
+        Route::post('/finance/expenses/import', [FinanceCsvController::class, 'import']);
+        Route::get('/documents/{id}/receipt-expense-suggestion', [FinanceController::class, 'receiptPreview']);
+        Route::post('/documents/{id}/receipt-expense-suggestion/accept', [FinanceController::class, 'acceptReceipt']);
+        Route::get('/finance/subscriptions', [SubscriptionController::class, 'index']);
+        Route::post('/finance/subscriptions', [SubscriptionController::class, 'create']);
+        Route::put('/finance/subscriptions/{id}', [SubscriptionController::class, 'update']);
+        Route::delete('/finance/subscriptions/{id}', [SubscriptionController::class, 'remove']);
+        Route::post('/finance/subscriptions/{id}/payments', [SubscriptionController::class, 'recordPayment']);
+        Route::get('/finance/subscription-insights', [SubscriptionController::class, 'insights']);
+        Route::get('/finance/assets', [AssetController::class, 'index']);
+        Route::post('/finance/assets', [AssetController::class, 'create']);
+        Route::put('/finance/assets/{id}', [AssetController::class, 'update']);
+        Route::delete('/finance/assets/{id}', [AssetController::class, 'remove']);
+        Route::post('/finance/asset-categories', [AssetController::class, 'category']);
+        Route::post('/finance/assets/{id}/warranties', [AssetController::class, 'addWarranty']);
+        Route::put('/finance/assets/{id}/warranties/{warrantyId}', [AssetController::class, 'updateWarranty']);
+        Route::post('/finance/assets/{id}/maintenance', [AssetController::class, 'addMaintenance']);
 
         // P3 document intelligence
         Route::get(

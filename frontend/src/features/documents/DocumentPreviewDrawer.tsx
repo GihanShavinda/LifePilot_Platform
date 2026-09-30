@@ -98,7 +98,7 @@ export function DocumentPreviewDrawer({
         className="drawer drawer-wide"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="actions" style={{marginBottom:10}}><Link className="button-link secondary" to={`/tasks?document_id=${doc.id}`}>Review obligation suggestions</Link></div>
+        <div className="actions" style={{marginBottom:10}}><Link className="button-link secondary" to={`/tasks?document_id=${doc.id}`}>Review obligation suggestions</Link><Link className="button-link secondary" to={`/finance?document_id=${doc.id}`}>Reviewed receipt → expense</Link></div>
         <div className="drawer-head">
           <div>
             <h2>Document details</h2>
