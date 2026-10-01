@@ -10,6 +10,7 @@ use App\Domain\Notifications\Controllers\NotificationPreferenceController;
 use App\Domain\Profiles\Controllers\ProfileController;
 use App\Domain\Users\Controllers\HouseholdController;
 use Illuminate\Support\Facades\Route;
+use App\Domain\Scheduling\Controllers\{CalendarController,CalendarConnectionController,NotificationController};
 use App\Domain\Finance\Controllers\{FinanceController,SubscriptionController,AssetController,FinanceCsvController,RecurringExpenseController};
 use App\Domain\Obligations\Controllers\{ObligationController,TaskController};
 
@@ -139,6 +140,26 @@ Route::prefix('v1')->group(function () {
         Route::post('/finance/assets/{id}/warranties', [AssetController::class, 'addWarranty']);
         Route::put('/finance/assets/{id}/warranties/{warrantyId}', [AssetController::class, 'updateWarranty']);
         Route::post('/finance/assets/{id}/maintenance', [AssetController::class, 'addMaintenance']);
+
+        // P6 internal calendar and notification inbox. All actions require Sanctum.
+        Route::get('/calendar/events', [CalendarController::class,'index']);
+        Route::get('/calendar/conflicts', [CalendarController::class,'conflicts']);
+        Route::post('/calendar/events', [CalendarController::class,'store']);
+        Route::post('/calendar/tasks/{taskId}/event', [CalendarController::class,'fromTask']);
+        Route::post('/calendar/documents/{documentId}/appointment', [CalendarController::class,'fromDocument']);
+        Route::get('/calendar/events/{id}', [CalendarController::class,'show']);
+        Route::put('/calendar/events/{id}', [CalendarController::class,'update']);
+        Route::delete('/calendar/events/{id}', [CalendarController::class,'destroy']);
+        Route::get('/calendar/google', [CalendarConnectionController::class,'status']);
+        Route::post('/calendar/google/connect', [CalendarConnectionController::class,'begin']);
+        Route::get('/calendar/google/callback', [CalendarConnectionController::class,'callback']);
+        Route::delete('/calendar/google', [CalendarConnectionController::class,'disconnect']);
+        Route::post('/calendar/events/{id}/sync-google', [CalendarConnectionController::class,'syncEvent']);
+        Route::get('/notifications', [NotificationController::class,'index']);
+        Route::put('/notifications/{id}/read', [NotificationController::class,'read']);
+        Route::get('/notifications/settings', [NotificationController::class,'settings']);
+        Route::put('/notifications/settings', [NotificationController::class,'saveSettings']);
+        Route::post('/notifications/push-subscriptions', [NotificationController::class,'subscribePush']);
 
         // P3 document intelligence
         Route::get(

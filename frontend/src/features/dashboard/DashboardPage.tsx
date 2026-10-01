@@ -7,9 +7,15 @@ export function DashboardPage() {
       <header>
         <div>
           <h1>LifePilot</h1>
-          <p>P5 life finance & personal admin</p>
+          <p>P6 calendar and notifications</p>
         </div>
         <div className="actions">
+          <Link className="button-link" to="/calendar">
+            Calendar
+          </Link>
+          <Link className="button-link" to="/notifications">
+            Notifications
+          </Link>
           <Link className="button-link" to="/tasks">
             Tasks
           </Link>
@@ -50,6 +56,10 @@ export function DashboardPage() {
             <li>Human-approved obligation suggestions (P4)</li>
             <li>Today, upcoming, overdue, calendar, kanban (P4)</li>
             <li>Tracked expenses, subscriptions, assets and warranties (P5)</li>
+            <li>
+              Calendar events, timezones, private realtime notifications and
+              explicit Google authorization (P6)
+            </li>
           </ul>
         </section>
       </div>

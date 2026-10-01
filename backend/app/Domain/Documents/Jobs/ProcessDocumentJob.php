@@ -73,6 +73,7 @@ class ProcessDocumentJob implements ShouldQueue
             $job->document()->update([
                 'processing_status' => 'ready',
             ]);
+            event(new \App\Domain\Scheduling\Events\LifePilotUpdated($job->document->user_id, 'processing.completed', ['document_id' => $job->document_id]));
         } catch (\Throwable $exception) {
             $job->update([
                 'status' => 'failed',

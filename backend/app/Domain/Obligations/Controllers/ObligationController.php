@@ -27,7 +27,9 @@ class ObligationController {
  public function suggestions(Request $request,int $documentId,ObligationSuggestionService $suggestions):JsonResponse {
   $id=$this->household($request);
   $doc=Document::where('household_id',$id)->with('category')->findOrFail($documentId);
-  return ApiResponse::success(['suggestions'=>$suggestions->suggest($doc)]);
+  $results=$suggestions->suggest($doc);
+  if($results && \Illuminate\Support\Facades\Cache::add('p6-recommendation-event:'.$request->user()->id.':'.hash('sha256',json_encode($results)),1,now()->addHours(12)))event(new \App\Domain\Scheduling\Events\LifePilotUpdated($request->user()->id,'recommendation.ready',['document_id'=>$doc->id]));
+  return ApiResponse::success(['suggestions'=>$results]);
  }
  public function store(Request $request,ObligationService $service):JsonResponse {
   $household=$this->household($request,true);

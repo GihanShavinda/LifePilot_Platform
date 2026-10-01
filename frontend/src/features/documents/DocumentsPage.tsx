@@ -1,10 +1,30 @@
-import { useState } from "react";
+import { listenForLifePilotUpdates } from "../calendar/realtime";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listDocuments } from "./documentApi";
 import { DocumentUploader } from "./DocumentUploader";
 import { DocumentPreviewDrawer } from "./DocumentPreviewDrawer";
 export function DocumentsPage() {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    let stop = () => {};
+    let active = true;
+    void listenForLifePilotUpdates((e) => {
+      if (
+        e.kind === "processing.completed" ||
+        e.kind === "recommendation.ready"
+      )
+        void queryClient.invalidateQueries({ queryKey: ["documents"] });
+    }).then((fn) => {
+      if (active) stop = fn;
+      else fn();
+    });
+    return () => {
+      active = false;
+      stop();
+    };
+  }, [queryClient]);
   const [params] = useSearchParams();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");

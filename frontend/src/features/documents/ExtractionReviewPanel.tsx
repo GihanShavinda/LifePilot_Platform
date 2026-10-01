@@ -1,3 +1,4 @@
+import {listenForLifePilotUpdates} from '../calendar/realtime';
 import { useEffect, useMemo, useState } from 'react';
 import {
   getDocumentIntelligence,
@@ -62,6 +63,9 @@ export function ExtractionReviewPanel({
 
   useEffect(() => {
     void load();
+    let stop=()=>{};let active=true;
+    void listenForLifePilotUpdates(e=>{if(e.kind==='processing.completed'&&e.data?.document_id===documentId)void load();}).then(fn=>{if(active)stop=fn;else fn();});
+    return ()=>{active=false;stop();};
   }, [documentId]);
 
   const pendingCount = useMemo(

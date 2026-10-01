@@ -1,0 +1,3 @@
+export interface CalendarEvent {id:number;title:string;description?:string|null;location?:string|null;starts_at:string;ends_at:string;timezone:string;task_id?:number|null;document_id?:number|null;reminder_offsets:number[]|null;status:string;recurrence_frequency?:string|null;external_event_id?:string|null}
+export interface LifeNotification {id:number;type:string;title:string;body:string;status:string;priority:string;created_at:string;read_at:string|null;deliveries:{channel:string;status:string;attempts:number;last_error?:string|null}[]}
+export interface CalendarConflict {id:number;title:string;starts_at:string;ends_at:string}

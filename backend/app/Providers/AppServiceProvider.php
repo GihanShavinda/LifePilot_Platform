@@ -12,6 +12,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->bind(\App\Domain\Scheduling\Contracts\PushAdapter::class, \App\Domain\Scheduling\Services\DisabledPushAdapter::class);
         $this->app->bind(
             MalwareScanner::class,
             NullMalwareScanner::class

@@ -10,6 +10,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             DocumentReferenceSeeder::class,
+            P6NotificationTemplateSeeder::class,
         ]);
     }
 }

@@ -74,6 +74,7 @@ class TaskController {
    }
    $task=Task::create(array_merge($data,['user_id'=>$request->user()->id,'household_id'=>$h,'status'=>'pending']));
    TaskActivityService::record($task,$request->user()->id,'created');
+   event(new \App\Domain\Scheduling\Events\LifePilotUpdated($request->user()->id,'task.updated',['task_id'=>$task->id]));
    $reminders->recommend($task);
    return ApiResponse::success(['task'=>$this->formatted($task)],201);
   });
@@ -91,6 +92,7 @@ class TaskController {
   if(in_array($task->status,['completed','skipped'],true))$reminders->cancel($task);
   elseif(array_key_exists('due_at',$data)){$reminders->cancel($task);$reminders->recommend($task);}
   TaskActivityService::record($task,$request->user()->id,'updated',['before'=>$before,'changes'=>array_keys($data)]);
+  event(new \App\Domain\Scheduling\Events\LifePilotUpdated($request->user()->id,'task.updated',['task_id'=>$task->id]));
   return ApiResponse::success(['task'=>$this->formatted($task)]);
  }
  public function destroy(Request $request,int $id,ReminderService $reminders):JsonResponse {
