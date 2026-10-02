@@ -1,0 +1,2 @@
+export type AssistantMessage={id:number;role:"user"|"assistant";intent?:string|null;content:string;citations?:string[]|null;claims?:unknown[]|null;grounding_status?:string|null;metadata?:{draft?:unknown;fallback_reason?:string|null;retrieval_trace_id?:number;citation_details?:Array<{key:string;type:string;id:number|string;title:string;source:unknown}>}|null;created_at:string};
+export type ConversationSession={id:number;title?:string|null;status:string;messages?:AssistantMessage[];last_message_at?:string|null};

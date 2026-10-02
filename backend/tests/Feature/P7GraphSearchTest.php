@@ -1,0 +1,22 @@
+<?php
+namespace Tests\Feature;
+
+use App\Domain\Documents\Models\{Document,DocumentExtraction,DocumentVersion,ExtractedField};
+use App\Domain\Graph\Models\{DocumentChunk,LifeEntity,LifeRelation};
+use App\Domain\Graph\Services\{DocumentIndexService,EntityMatcher,GraphSyncService};
+use App\Domain\Users\Models\{Household,HouseholdMember,User};
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+class P7GraphSearchTest extends TestCase
+{
+ use RefreshDatabase;
+ private function actor(string $email='a@example.com'):array{$u=User::factory()->create(['email'=>$email]);$h=Household::create(['name'=>'Graph Home']);HouseholdMember::create(['household_id'=>$h->id,'user_id'=>$u->id,'role'=>'owner']);Sanctum::actingAs($u);return[$u,$h];}
+ private function document(User $u,Household $h,string $text,string $issuer='Example University'):Document{$d=Document::create(['user_id'=>$u->id,'household_id'=>$h->id,'title'=>'University laptop receipt','original_filename'=>'receipt.txt','mime_type'=>'text/plain','size'=>strlen($text),'storage_disk'=>'documents','storage_path'=>'p7.txt','checksum'=>hash('sha256',$text),'status'=>'active','processing_status'=>'ready']);$v=DocumentVersion::create(['document_id'=>$d->id,'uploaded_by'=>$u->id,'version_number'=>1,'original_filename'=>'receipt.txt','mime_type'=>'text/plain','size'=>strlen($text),'storage_disk'=>'documents','storage_path'=>'p7.txt','checksum'=>hash('sha256',$text)]);$e=DocumentExtraction::create(['document_id'=>$d->id,'document_version_id'=>$v->id,'version_number'=>1,'status'=>'needs_review','extractor_version'=>'test','source_text'=>$text]);foreach(['document_type'=>'receipt','issuer'=>$issuer,'organization_names'=>$issuer] as $name=>$value)ExtractedField::create(['document_extraction_id'=>$e->id,'field_name'=>$name,'value'=>$value,'normalized_value'=>$value,'confidence'=>.99,'page'=>1,'evidence_text'=>$value,'extractor_version'=>'test','review_status'=>'accepted','source'=>'deterministic','fingerprint'=>hash('sha256',$name.$value)]);return$d;}
+ public function test_duplicate_organization_matching_and_relationship_creation():void{[$u,$h]=$this->actor();$this->document($u,$h,'Receipt issued by Example University for laptop.','Example University');$this->document($u,$h,'Another receipt from example   university.','example   university');app(GraphSyncService::class)->syncHousehold($h->id);$this->assertSame(1,LifeEntity::where('household_id',$h->id)->where('entity_type','organization')->count());$this->assertGreaterThanOrEqual(2,LifeRelation::where('household_id',$h->id)->where('relation_type','ISSUED_BY')->count());}
+ public function test_accepted_document_text_is_chunked_and_has_evidence_source():void{[$u,$h]=$this->actor();$d=$this->document($u,$h,'Laptop receipt serial ABC123 purchased from Example University shop. Warranty included.');app(DocumentIndexService::class)->index($d);$chunk=DocumentChunk::first();$this->assertNotNull($chunk);$this->assertSame($d->id,$chunk->source_reference['document_id']);$this->assertDatabaseCount('embedding_records',1);}
+ public function test_authorized_semantic_search_is_household_scoped():void{[$u,$h]=$this->actor('one@example.com');$d=$this->document($u,$h,'My blue laptop receipt and warranty proof.');app(DocumentIndexService::class)->index($d);app(GraphSyncService::class)->syncHousehold($h->id);[$u2,$h2]=$this->actor('two@example.com');$d2=$this->document($u2,$h2,'Private car insurance receipt.');app(DocumentIndexService::class)->index($d2);$this->getJson('/api/v1/search?q=laptop receipt')->assertOk()->assertJsonMissing(['document_id'=>$d->id]);}
+ public function test_hybrid_search_ranks_matching_document_and_returns_sources():void{[$u,$h]=$this->actor();$d=$this->document($u,$h,'Laptop receipt purchase warranty serial LAP-9000.');app(DocumentIndexService::class)->index($d);$res=$this->getJson('/api/v1/search?q=find the receipt for my laptop')->assertOk();$results=$res->json('data.results');$this->assertNotEmpty($results);$this->assertNotEmpty($results[0]['sources']);}
+ public function test_graph_endpoint_rejects_other_household_entity():void{[$u,$h]=$this->actor('one2@example.com');$this->document($u,$h,'Document one');app(GraphSyncService::class)->syncHousehold($h->id);$id=LifeEntity::where('household_id',$h->id)->first()->id;$this->actor('two2@example.com');$this->getJson("/api/v1/graph/entities/$id")->assertNotFound();}
+}

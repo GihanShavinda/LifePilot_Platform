@@ -1,0 +1,173 @@
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  height: var(--lp-topbar-height);
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--lp-border);
+}
+
+.topbar-left {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topbar-mobile-menu {
+  display: none;
+  border: 0;
+  background: transparent;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.topbar-search {
+  width: min(520px, 100%);
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #dbe3ec;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: #f8fafc;
+}
+
+.topbar-search-icon {
+  color: #64748b;
+}
+
+.topbar-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
+  font-size: 13px;
+}
+
+.topbar-search input::placeholder {
+  color: #94a3b8;
+}
+
+.topbar-search-shortcut {
+  padding: 4px 7px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.topbar-quick-add {
+  height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #0f172a;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.topbar-icon-button {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  background: white;
+  cursor: pointer;
+}
+
+.topbar-notification-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 7px;
+  height: 7px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #ef4444;
+}
+
+.topbar-profile {
+  padding: 4px 8px 4px 4px;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.topbar-profile-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.topbar-profile-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.topbar-profile-copy strong {
+  font-size: 11px;
+  color: #0f172a;
+}
+
+.topbar-profile-copy small {
+  color: #94a3b8;
+  font-size: 9px;
+}
+
+@media (max-width: 1100px) {
+  .app-topbar {
+    padding: 0 20px;
+  }
+
+  .topbar-mobile-menu {
+    display: block;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar-search-shortcut,
+  .topbar-profile-copy,
+  .topbar-quick-add {
+    display: none;
+  }
+
+  .app-topbar {
+    padding: 0 14px;
+  }
+}

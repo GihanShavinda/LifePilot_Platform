@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Route;
 use App\Domain\Scheduling\Controllers\{CalendarController,CalendarConnectionController,NotificationController};
 use App\Domain\Finance\Controllers\{FinanceController,SubscriptionController,AssetController,FinanceCsvController,RecurringExpenseController};
 use App\Domain\Obligations\Controllers\{ObligationController,TaskController};
+use App\Domain\Graph\Controllers\{GraphController,SemanticSearchController};
+use App\Domain\Assistant\Controllers\AssistantController;
 
 Route::prefix('v1')->group(function () {
     Route::get('/health', fn () => response()->json([
@@ -160,6 +162,20 @@ Route::prefix('v1')->group(function () {
         Route::get('/notifications/settings', [NotificationController::class,'settings']);
         Route::put('/notifications/settings', [NotificationController::class,'saveSettings']);
         Route::post('/notifications/push-subscriptions', [NotificationController::class,'subscribePush']);
+
+        // P8 grounded AI assistant. Sessions and evidence are strictly household-scoped.
+        Route::get('/assistant/sessions', [AssistantController::class, 'sessions']);
+        Route::post('/assistant/sessions', [AssistantController::class, 'createSession']);
+        Route::get('/assistant/sessions/{id}', [AssistantController::class, 'show']);
+        Route::post('/assistant/sessions/{id}/messages', [AssistantController::class, 'ask'])->middleware('throttle:30,1');
+        Route::post('/assistant/messages/{messageId}/feedback', [AssistantController::class, 'feedback']);
+
+        // P7 Life Action Graph + semantic/hybrid search.
+        Route::post('/graph/sync', [GraphController::class, 'sync']);
+        Route::get('/graph/entities', [GraphController::class, 'entities']);
+        Route::get('/graph/entities/{id}', [GraphController::class, 'show']);
+        Route::get('/search', [SemanticSearchController::class, 'search']);
+        Route::post('/documents/{id}/semantic/reindex', [SemanticSearchController::class, 'reindexDocument']);
 
         // P3 document intelligence
         Route::get(

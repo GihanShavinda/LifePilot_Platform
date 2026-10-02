@@ -11,6 +11,7 @@ use App\Domain\Documents\Models\ExtractedField;
 use App\Domain\Documents\Requests\ReviewExtractedFieldRequest;
 use App\Domain\Documents\Services\DocumentAuthorization;
 use App\Domain\Documents\Services\ExtractionReviewService;
+use App\Domain\Graph\Jobs\IndexDocumentForSemanticSearch;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -129,6 +130,8 @@ class DocumentIntelligenceController
             $request->input('value'),
             $request->input('note'),
         );
+
+        IndexDocumentForSemanticSearch::dispatch($document->id);
 
         $this->audit->record(
             'document.intelligence.field_reviewed',
