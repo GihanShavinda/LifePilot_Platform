@@ -15,6 +15,7 @@ use App\Domain\Finance\Controllers\{FinanceController,SubscriptionController,Ass
 use App\Domain\Obligations\Controllers\{ObligationController,TaskController};
 use App\Domain\Graph\Controllers\{GraphController,SemanticSearchController};
 use App\Domain\Assistant\Controllers\AssistantController;
+use App\Domain\Actions\Controllers\ActionPlanController;
 
 Route::prefix('v1')->group(function () {
     Route::get('/health', fn () => response()->json([
@@ -162,6 +163,16 @@ Route::prefix('v1')->group(function () {
         Route::get('/notifications/settings', [NotificationController::class,'settings']);
         Route::put('/notifications/settings', [NotificationController::class,'saveSettings']);
         Route::post('/notifications/push-subscriptions', [NotificationController::class,'subscribePush']);
+
+        // P9 safe agentic workflows. Plans are previewed, approved, executed, verified and audited.
+        Route::get('/action-plans', [ActionPlanController::class, 'index']);
+        Route::post('/action-plans', [ActionPlanController::class, 'store'])->middleware('throttle:30,1');
+        Route::get('/action-plans/{id}', [ActionPlanController::class, 'show']);
+        Route::post('/action-plans/{id}/approve', [ActionPlanController::class, 'approve']);
+        Route::post('/action-plans/{id}/execute', [ActionPlanController::class, 'execute'])->middleware('throttle:20,1');
+        Route::post('/action-plans/{id}/cancel', [ActionPlanController::class, 'cancel']);
+        Route::get('/action-plans/{id}/audit', [ActionPlanController::class, 'audit']);
+        Route::post('/assistant/messages/{messageId}/action-plan', [ActionPlanController::class, 'fromAssistant']);
 
         // P8 grounded AI assistant. Sessions and evidence are strictly household-scoped.
         Route::get('/assistant/sessions', [AssistantController::class, 'sessions']);

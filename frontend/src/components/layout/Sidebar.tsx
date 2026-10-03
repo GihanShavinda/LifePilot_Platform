@@ -17,55 +17,25 @@ type NavigationItem = {
 };
 
 const overviewItems: NavigationItem[] = [
-  {
-    label: "Dashboard",
-    path: "/dashboard",
-    icon: "▦",
-  },
+  { label: "Dashboard", path: "/dashboard", icon: "▦" },
 ];
 
 const organizeItems: NavigationItem[] = [
-  {
-    label: "Documents",
-    path: "/documents",
-    icon: "▤",
-  },
-  {
-    label: "Tasks & Obligations",
-    path: "/tasks",
-    icon: "✓",
-  },
-  {
-    label: "Finance",
-    path: "/finance",
-    icon: "$",
-  },
-  {
-    label: "Calendar",
-    path: "/calendar",
-    icon: "□",
-  },
+  { label: "Documents", path: "/documents", icon: "▤" },
+  { label: "Tasks & Obligations", path: "/tasks", icon: "✓" },
+  { label: "Finance", path: "/finance", icon: "$" },
+  { label: "Calendar", path: "/calendar", icon: "□" },
 ];
 
 const intelligenceItems: NavigationItem[] = [
-  {
-    label: "Life Search",
-    path: "/search",
-    icon: "⌕",
-  },
-  {
-    label: "AI Assistant",
-    path: "/assistant",
-    icon: "✦",
-  },
+  { label: "Life Search", path: "/search", icon: "⌕" },
+  { label: "AI Assistant", path: "/assistant", icon: "✦" },
+  { label: "Action Center", path: "/actions", icon: "⚡" },
 ];
 
 const activityItems: NavigationItem[] = [
-  {
-    label: "Notifications",
-    path: "/notifications",
-    icon: "◉",
-  },
+  { label: "Notifications", path: "/notifications", icon: "◉" },
+  { label: "Settings", path: "/settings", icon: "⚙" },
 ];
 
 function SidebarSection({
@@ -81,11 +51,7 @@ function SidebarSection({
 }) {
   return (
     <div className="sidebar-section">
-      {!collapsed && (
-        <div className="sidebar-section-title">
-          {title}
-        </div>
-      )}
+      {!collapsed && <div className="sidebar-section-title">{title}</div>}
 
       <div className="sidebar-navigation-list">
         {items.map((item) => (
@@ -94,20 +60,13 @@ function SidebarSection({
             to={item.path}
             onClick={onNavigate}
             className={({ isActive }) =>
-              `sidebar-navigation-item ${
-                isActive ? "active" : ""
-              }`
+              `sidebar-navigation-item ${isActive ? "active" : ""}`
             }
             title={collapsed ? item.label : undefined}
           >
-            <span className="sidebar-navigation-icon">
-              {item.icon}
-            </span>
-
+            <span className="sidebar-navigation-icon">{item.icon}</span>
             {!collapsed && (
-              <span className="sidebar-navigation-label">
-                {item.label}
-              </span>
+              <span className="sidebar-navigation-label">{item.label}</span>
             )}
           </NavLink>
         ))}
@@ -148,10 +107,7 @@ export function Sidebar({
             className="sidebar-brand"
             onClick={() => navigate("/dashboard")}
           >
-            <span className="sidebar-brand-mark">
-              L
-            </span>
-
+            <span className="sidebar-brand-mark">L</span>
             {!collapsed && (
               <div className="sidebar-brand-copy">
                 <strong>LifePilot</strong>
@@ -171,45 +127,15 @@ export function Sidebar({
         </div>
 
         <div className="sidebar-scroll">
-          <SidebarSection
-            title="OVERVIEW"
-            items={overviewItems}
-            collapsed={collapsed}
-            onNavigate={onCloseMobile}
-          />
-
-          <SidebarSection
-            title="ORGANIZE"
-            items={organizeItems}
-            collapsed={collapsed}
-            onNavigate={onCloseMobile}
-          />
-
-          <SidebarSection
-            title="INTELLIGENCE"
-            items={intelligenceItems}
-            collapsed={collapsed}
-            onNavigate={onCloseMobile}
-          />
-
-          <SidebarSection
-            title="ACTIVITY"
-            items={activityItems}
-            collapsed={collapsed}
-            onNavigate={onCloseMobile}
-          />
+          <SidebarSection title="OVERVIEW" items={overviewItems} collapsed={collapsed} onNavigate={onCloseMobile} />
+          <SidebarSection title="ORGANIZE" items={organizeItems} collapsed={collapsed} onNavigate={onCloseMobile} />
+          <SidebarSection title="INTELLIGENCE" items={intelligenceItems} collapsed={collapsed} onNavigate={onCloseMobile} />
+          <SidebarSection title="ACTIVITY" items={activityItems} collapsed={collapsed} onNavigate={onCloseMobile} />
         </div>
 
         <div className="sidebar-footer">
-          <div
-            className={`sidebar-profile ${
-              collapsed ? "collapsed" : ""
-            }`}
-          >
-            <div className="sidebar-profile-avatar">
-              G
-            </div>
-
+          <div className={`sidebar-profile ${collapsed ? "collapsed" : ""}`}>
+            <div className="sidebar-profile-avatar">G</div>
             {!collapsed && (
               <div className="sidebar-profile-copy">
                 <strong>Gihan</strong>
