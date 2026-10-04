@@ -16,6 +16,7 @@ use App\Domain\Obligations\Controllers\{ObligationController,TaskController};
 use App\Domain\Graph\Controllers\{GraphController,SemanticSearchController};
 use App\Domain\Assistant\Controllers\AssistantController;
 use App\Domain\Actions\Controllers\ActionPlanController;
+use App\Domain\Analytics\Controllers\AnalyticsController;
 use App\Domain\Collaboration\Controllers\{AssignmentController, HouseholdCollaborationController, InvitationController, SharingController};
 
 Route::prefix('v1')->group(function () {
@@ -179,6 +180,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/notifications/settings', [NotificationController::class,'settings']);
         Route::put('/notifications/settings', [NotificationController::class,'saveSettings']);
         Route::post('/notifications/push-subscriptions', [NotificationController::class,'subscribePush']);
+
+        // P11 explainable analytics and lightweight prediction. Read-only analytics plus explicit snapshot refresh.
+        Route::get('/analytics/dashboard', [AnalyticsController::class, 'dashboard']);
+        Route::post('/analytics/refresh', [AnalyticsController::class, 'refresh'])->middleware('throttle:20,1');
+        Route::get('/analytics/predictions', [AnalyticsController::class, 'predictions']);
+        Route::get('/analytics/insights', [AnalyticsController::class, 'insights']);
+        Route::get('/analytics/data-quality', [AnalyticsController::class, 'dataQuality']);
 
         // P9 safe agentic workflows. Plans are previewed, approved, executed, verified and audited.
         Route::get('/action-plans', [ActionPlanController::class, 'index']);
