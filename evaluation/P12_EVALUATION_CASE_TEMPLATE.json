@@ -1,0 +1,21 @@
+[
+  {
+    "variant": "rules_extraction",
+    "metric_key": "extraction_accuracy",
+    "case_key": "document-001",
+    "outcome": "pass",
+    "expected": {"field": "expected value"},
+    "actual": {"field": "system value"},
+    "evidence_refs": ["document:1"],
+    "metadata": {"notes": "Replace with real labeled benchmark data."}
+  },
+  {
+    "variant": "rules_rag",
+    "metric_key": "retrieval_precision_at_k",
+    "case_key": "query-001-result-001",
+    "outcome": "tp",
+    "expected": {"relevant": true},
+    "actual": {"retrieved": true},
+    "metadata": {"k": 5}
+  }
+]

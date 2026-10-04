@@ -33,6 +33,7 @@ const intelligenceItems: NavigationItem[] = [
   { label: "AI Assistant", path: "/assistant", icon: "✦" },
   { label: "Action Center", path: "/actions", icon: "⚡" },
   { label: "Analytics & Insights", path: "/analytics", icon: "◫" },
+  { label: "Evaluation & Reports", path: "/evaluation", icon: "▥" },
 ];
 
 const activityItems: NavigationItem[] = [

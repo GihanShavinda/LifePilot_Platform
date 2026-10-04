@@ -21,6 +21,7 @@ class AssistantService
 
     public function ask(User $user, ConversationSession $session, string $question): ConversationMessage
     {
+        $totalStarted = microtime(true);
         abort_unless($session->user_id === $user->id, 404);
         $householdId = $this->access->householdId($user);
         abort_unless($session->household_id === $householdId, 404);
@@ -108,6 +109,8 @@ class AssistantService
                 'retrieval_trace_id' => $trace->id,
                 'citation_details' => $citationDetails,
                 'privacy_scope' => 'sharing_aware',
+                'retrieval_latency_ms' => $latency,
+                'total_response_latency_ms' => (int) round((microtime(true) - $totalStarted) * 1000),
             ],
         ]);
 

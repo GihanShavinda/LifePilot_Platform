@@ -17,6 +17,7 @@ use App\Domain\Graph\Controllers\{GraphController,SemanticSearchController};
 use App\Domain\Assistant\Controllers\AssistantController;
 use App\Domain\Actions\Controllers\ActionPlanController;
 use App\Domain\Analytics\Controllers\AnalyticsController;
+use App\Domain\Completion\Controllers\{CompletionDashboardController, EvaluationController};
 use App\Domain\Collaboration\Controllers\{AssignmentController, HouseholdCollaborationController, InvitationController, SharingController};
 
 Route::prefix('v1')->group(function () {
@@ -187,6 +188,19 @@ Route::prefix('v1')->group(function () {
         Route::get('/analytics/predictions', [AnalyticsController::class, 'predictions']);
         Route::get('/analytics/insights', [AnalyticsController::class, 'insights']);
         Route::get('/analytics/data-quality', [AnalyticsController::class, 'dataQuality']);
+
+        // P12 completion dashboards, evaluation, security review and final report exports.
+        Route::get('/completion/dashboard', [CompletionDashboardController::class, 'index']);
+        Route::get('/completion/dashboard/main', [CompletionDashboardController::class, 'main']);
+        Route::get('/completion/dashboard/documents', [CompletionDashboardController::class, 'documents']);
+        Route::get('/completion/dashboard/finance', [CompletionDashboardController::class, 'finance']);
+        Route::get('/completion/dashboard/ai', [CompletionDashboardController::class, 'ai']);
+        Route::get('/evaluation/summary', [EvaluationController::class, 'summary']);
+        Route::post('/evaluation/run', [EvaluationController::class, 'run'])->middleware('throttle:10,1');
+        Route::get('/evaluation/runs', [EvaluationController::class, 'runs']);
+        Route::get('/evaluation/security-review', [EvaluationController::class, 'security']);
+        Route::get('/evaluation/export/{format}', [EvaluationController::class, 'export'])
+            ->whereIn('format', ['json', 'csv', 'pdf']);
 
         // P9 safe agentic workflows. Plans are previewed, approved, executed, verified and audited.
         Route::get('/action-plans', [ActionPlanController::class, 'index']);
