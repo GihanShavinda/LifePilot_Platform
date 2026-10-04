@@ -16,12 +16,15 @@ class TaskController {
   $member=$request->user()->householdMemberships()->first();
   if(!$member)throw new AuthorizationException('Household required.');
   $role=$member->role instanceof \BackedEnum?$member->role->value:(string)$member->role;
-  if($write && !in_array($role,['owner','family_member'],true))throw new AuthorizationException('Read-only household role.');
+  if($write && !in_array($role,['owner','admin','member','family_member'],true))throw new AuthorizationException('Read-only household role.');
   return $member->household_id;
  }
  private function task(Request $request,int $id,bool $write=false):Task {
   $h=$this->household($request,$write);
-  return Task::where('household_id',$h)->findOrFail($id);
+  
+  $task=Task::accessibleTo($request->user())->where('household_id',$h)->findOrFail($id);
+  if($write)app(\App\Domain\Collaboration\Services\SharedResourceService::class)->ensureWrite($request->user(),$task);
+  return $task;
  }
  private function rules(bool $create=true):array {
   $required=$create?'required':'sometimes';
@@ -38,7 +41,7 @@ class TaskController {
  }
  public function index(Request $request):JsonResponse {
   $h=$this->household($request);
-  $q=Task::where('household_id',$h)->with(['checklist','reminders','obligation:id,type,amount,currency']);
+  $q=Task::accessibleTo($request->user())->where('household_id',$h)->with(['checklist','reminders','obligation:id,type,amount,currency']);
   $view=$request->query('view','all');$now=now();
   if($view==='today')$q->whereDate('due_at',$now->toDateString())->whereNotIn('status',['completed','skipped']);
   if($view==='upcoming')$q->where('due_at','>',$now)->whereNotIn('status',['completed','skipped']);
@@ -59,8 +62,8 @@ class TaskController {
    'recurrence.interval'=>'sometimes|integer|min:1|max:365','recurrence.until_at'=>'nullable|date|after:now',
    'recurrence.max_occurrences'=>'nullable|integer|min:1|max:1000',
   ]));
-  if(!empty($data['document_id']))Document::where('household_id',$h)->findOrFail($data['document_id']);
-  if(!empty($data['parent_task_id']))Task::where('household_id',$h)->findOrFail($data['parent_task_id']);
+  if(!empty($data['document_id']))Document::accessibleTo($request->user())->where('household_id',$h)->findOrFail($data['document_id']);
+  if(!empty($data['parent_task_id']))Task::accessibleTo($request->user())->where('household_id',$h)->findOrFail($data['parent_task_id']);
   if(!empty($data['recurrence']) && empty($data['due_at']))throw ValidationException::withMessages(['due_at'=>'Recurring tasks require a due date.']);
   if(!empty($data['due_at']) && now()->gt(\Carbon\Carbon::parse($data['due_at'])))throw ValidationException::withMessages(['due_at'=>'New tasks cannot start with an impossible or past due date.']);
   return DB::transaction(function()use($data,$h,$request,$reminders,$recurrence){
@@ -82,8 +85,8 @@ class TaskController {
  public function update(Request $request,int $id,ReminderService $reminders,TaskDependencyService $dependencies):JsonResponse {
   $task=$this->task($request,$id,true);
   $data=$request->validate(array_merge($this->rules(false),['status'=>['sometimes',Rule::in(['pending','in_progress','completed','skipped'])], 'completion_evidence'=>'nullable|string|max:5000']));
-  if(isset($data['document_id']))Document::where('household_id',$task->household_id)->findOrFail($data['document_id']);
-  if(isset($data['parent_task_id']))Task::where('household_id',$task->household_id)->where('id','!=',$task->id)->findOrFail($data['parent_task_id']);
+  if(isset($data['document_id']))Document::accessibleTo($request->user())->where('household_id',$task->household_id)->findOrFail($data['document_id']);
+  if(isset($data['parent_task_id']))Task::accessibleTo($request->user())->where('household_id',$task->household_id)->where('id','!=',$task->id)->findOrFail($data['parent_task_id']);
   if(isset($data['status']) && $data['status']==='completed')$dependencies->ensureReady($task);
   if(isset($data['due_at']) && $data['due_at'] && \Carbon\Carbon::parse($data['due_at'])->isPast() && ($data['status']??$task->status)!=='completed')throw ValidationException::withMessages(['due_at'=>'Choose a valid future due date.']);
   if(isset($data['status']) && $data['status']==='completed')$data['completed_at']=now();
@@ -115,7 +118,7 @@ class TaskController {
  }
  public function addDependency(Request $request,int $id,TaskDependencyService $service):JsonResponse {
   $task=$this->task($request,$id,true);$data=$request->validate(['depends_on_task_id'=>'required|integer']);
-  $other=Task::where('household_id',$task->household_id)->findOrFail($data['depends_on_task_id']);
+  $other=Task::accessibleTo($request->user())->where('household_id',$task->household_id)->findOrFail($data['depends_on_task_id']);
   $service->add($task,$other);TaskActivityService::record($task,$request->user()->id,'dependency_added',['task_id'=>$other->id]);return ApiResponse::success(['task'=>$this->formatted($task)]);
  }
  public function removeDependency(Request $request,int $id,int $dependencyId):JsonResponse {

@@ -18,6 +18,7 @@ type NavigationItem = {
 
 const overviewItems: NavigationItem[] = [
   { label: "Dashboard", path: "/dashboard", icon: "▦" },
+  { label: "Household", path: "/household", icon: "⌂" },
 ];
 
 const organizeItems: NavigationItem[] = [
@@ -127,10 +128,30 @@ export function Sidebar({
         </div>
 
         <div className="sidebar-scroll">
-          <SidebarSection title="OVERVIEW" items={overviewItems} collapsed={collapsed} onNavigate={onCloseMobile} />
-          <SidebarSection title="ORGANIZE" items={organizeItems} collapsed={collapsed} onNavigate={onCloseMobile} />
-          <SidebarSection title="INTELLIGENCE" items={intelligenceItems} collapsed={collapsed} onNavigate={onCloseMobile} />
-          <SidebarSection title="ACTIVITY" items={activityItems} collapsed={collapsed} onNavigate={onCloseMobile} />
+          <SidebarSection
+            title="OVERVIEW"
+            items={overviewItems}
+            collapsed={collapsed}
+            onNavigate={onCloseMobile}
+          />
+          <SidebarSection
+            title="ORGANIZE"
+            items={organizeItems}
+            collapsed={collapsed}
+            onNavigate={onCloseMobile}
+          />
+          <SidebarSection
+            title="INTELLIGENCE"
+            items={intelligenceItems}
+            collapsed={collapsed}
+            onNavigate={onCloseMobile}
+          />
+          <SidebarSection
+            title="ACTIVITY"
+            items={activityItems}
+            collapsed={collapsed}
+            onNavigate={onCloseMobile}
+          />
         </div>
 
         <div className="sidebar-footer">

@@ -19,7 +19,7 @@ class CalendarController {
   ];}
  public function index(Request $r):JsonResponse{
   $h=$this->access->household($r->user());$data=$r->validate(['from'=>'required|date','to'=>'required|date|after:from']);
-  $events=CalendarEvent::where('household_id',$h)->where('starts_at','<',$data['to'])->where('ends_at','>',$data['from'])->orderBy('starts_at')->limit(1000)->get();
+  $events=CalendarEvent::accessibleTo($r->user())->where('household_id',$h)->where('starts_at','<',$data['to'])->where('ends_at','>',$data['from'])->orderBy('starts_at')->limit(1000)->get();
   return ApiResponse::success(['events'=>$events]);
  }
  public function show(Request $r,int $id):JsonResponse{return ApiResponse::success(['event'=>$this->access->event($r->user(),$id)]);}
@@ -63,7 +63,7 @@ class CalendarController {
   event(new LifePilotUpdated($r->user()->id,'calendar.event.updated',['event_id'=>$event->id]));return ApiResponse::success(['deleted'=>true]);
  }
  public function fromTask(Request $r,int $taskId):JsonResponse{
-  $h=$this->access->household($r->user(),true);$task=\App\Domain\Obligations\Models\Task::where('household_id',$h)->findOrFail($taskId);
+  $h=$this->access->household($r->user(),true);$task=$this->access->task($r->user(),$taskId,$h,true);
   $d=$r->validate(['timezone'=>'required|timezone','duration_minutes'=>'sometimes|integer|min:5|max:1440','confirm_conflicts'=>'sometimes|boolean']);
   if(!$task->due_at)throw ValidationException::withMessages(['task'=>'Set a task due date before creating an event.']);
   $start=CarbonImmutable::parse($task->due_at)->subMinutes($d['duration_minutes']??60);$end=CarbonImmutable::parse($task->due_at);

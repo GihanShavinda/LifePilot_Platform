@@ -16,6 +16,7 @@ use App\Domain\Obligations\Controllers\{ObligationController,TaskController};
 use App\Domain\Graph\Controllers\{GraphController,SemanticSearchController};
 use App\Domain\Assistant\Controllers\AssistantController;
 use App\Domain\Actions\Controllers\ActionPlanController;
+use App\Domain\Collaboration\Controllers\{AssignmentController, HouseholdCollaborationController, InvitationController, SharingController};
 
 Route::prefix('v1')->group(function () {
     Route::get('/health', fn () => response()->json([
@@ -72,6 +73,21 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/households/current', [HouseholdController::class, 'current']);
         Route::get('/households/current/members', [HouseholdController::class, 'members']);
+
+        // P10 shared household collaboration. Private resources remain owner-only unless explicitly shared.
+        Route::get('/households/current/dashboard', [HouseholdCollaborationController::class, 'dashboard']);
+        Route::get('/households/current/activity', [HouseholdCollaborationController::class, 'activity']);
+        Route::put('/households/current/members/{memberId}/role', [HouseholdCollaborationController::class, 'updateRole']);
+        Route::delete('/households/current/members/{memberId}', [HouseholdCollaborationController::class, 'removeMember']);
+        Route::get('/households/current/invitations', [InvitationController::class, 'index']);
+        Route::post('/households/current/invitations', [InvitationController::class, 'store'])->middleware('throttle:20,1');
+        Route::post('/household-invitations/{token}/accept', [InvitationController::class, 'accept'])->middleware('throttle:20,1');
+        Route::post('/household-invitations/{token}/decline', [InvitationController::class, 'decline'])->middleware('throttle:20,1');
+        Route::get('/shared-resources/{type}/{id}', [SharingController::class, 'show']);
+        Route::put('/shared-resources/{type}/{id}', [SharingController::class, 'update']);
+        Route::get('/assignments', [AssignmentController::class, 'index']);
+        Route::post('/tasks/{taskId}/assign', [AssignmentController::class, 'assignTask']);
+        Route::post('/assignments/{id}/complete', [AssignmentController::class, 'complete']);
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
 
         Route::get('/owner-check', fn () => response()->json([

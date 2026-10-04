@@ -4,6 +4,7 @@ namespace App\Domain\Actions\Services;
 
 use App\Domain\Actions\Enums\{ActionPlanStatus, ActionStepStatus, ActionType};
 use App\Domain\Actions\Models\{ActionExecution, ActionPlan, ActionResult, ActionStep};
+use App\Domain\Collaboration\Services\SharedResourceService;
 use App\Domain\Documents\Models\Document;
 use App\Domain\Finance\Models\{Asset, Expense, ExpenseCategory, Subscription};
 use App\Domain\Obligations\Models\{Reminder, Task};
@@ -15,6 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 class ActionExecutor
 {
+    public function __construct(private SharedResourceService $sharing)
+    {
+    }
+
     public function execute(User $user, ActionPlan $plan): ActionPlan
     {
         if ($plan->status === ActionPlanStatus::Completed) {
@@ -161,15 +166,15 @@ class ActionExecutor
 
         return match ($step->action_type) {
             ActionType::CreateTask => $this->createTask($user, $householdId, $payload),
-            ActionType::UpdateTask => $this->updateTask($householdId, $payload),
+            ActionType::UpdateTask => $this->updateTask($user, $householdId, $payload),
             ActionType::CreateReminder => $this->createReminder($user, $householdId, $payload),
             ActionType::CreateCalendarEvent => $this->createCalendarEvent($user, $householdId, $payload),
             ActionType::PrepareEmailDraft => $this->prepareEmailDraft($payload),
-            ActionType::CategorizeExpense => $this->categorizeExpense($householdId, $payload),
+            ActionType::CategorizeExpense => $this->categorizeExpense($user, $householdId, $payload),
             ActionType::CreateExpense => $this->createExpense($user, $householdId, $payload),
             ActionType::CreateAsset => $this->createAsset($user, $householdId, $payload),
             ActionType::CreateSubscription => $this->createSubscription($user, $householdId, $payload),
-            ActionType::ArchiveDocument => $this->archiveDocument($householdId, $payload),
+            ActionType::ArchiveDocument => $this->archiveDocument($user, $householdId, $payload),
             ActionType::RequestIntegrationAction => $this->prepareIntegrationRequest($payload),
         };
     }
@@ -191,9 +196,10 @@ class ActionExecutor
         return $this->modelOutcome('task', $task);
     }
 
-    private function updateTask(int $householdId, array $p): array
+    private function updateTask(User $user, int $householdId, array $p): array
     {
         $task = Task::where('household_id', $householdId)->findOrFail((int) $this->required($p, 'task_id'));
+        $this->sharing->ensureWrite($user, $task);
         $allowed = array_intersect_key($p['changes'] ?? [], array_flip(['title', 'description', 'priority', 'status', 'labels', 'due_at']));
         if (!$allowed) {
             throw new \InvalidArgumentException('No supported task changes were provided.');
@@ -205,6 +211,7 @@ class ActionExecutor
     private function createReminder(User $user, int $householdId, array $p): array
     {
         $task = Task::where('household_id', $householdId)->findOrFail((int) $this->required($p, 'task_id'));
+        $this->sharing->ensureWrite($user, $task);
         $reminder = Reminder::create([
             'task_id' => $task->id,
             'user_id' => $user->id,
@@ -252,9 +259,10 @@ class ActionExecutor
         ];
     }
 
-    private function categorizeExpense(int $householdId, array $p): array
+    private function categorizeExpense(User $user, int $householdId, array $p): array
     {
         $expense = Expense::where('household_id', $householdId)->findOrFail((int) $this->required($p, 'expense_id'));
+        $this->sharing->ensureWrite($user, $expense);
         $category = ExpenseCategory::where('household_id', $householdId)->findOrFail((int) $this->required($p, 'expense_category_id'));
         $expense->update(['expense_category_id' => $category->id]);
         return $this->modelOutcome('expense', $expense->fresh());
@@ -316,9 +324,10 @@ class ActionExecutor
         return $this->modelOutcome('subscription', $subscription);
     }
 
-    private function archiveDocument(int $householdId, array $p): array
+    private function archiveDocument(User $user, int $householdId, array $p): array
     {
         $document = Document::where('household_id', $householdId)->findOrFail((int) $this->required($p, 'document_id'));
+        $this->sharing->ensureWrite($user, $document);
         $document->update(['archived_at' => now()]);
         return $this->modelOutcome('document', $document->fresh());
     }

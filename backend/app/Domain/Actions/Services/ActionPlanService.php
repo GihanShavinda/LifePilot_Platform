@@ -25,7 +25,7 @@ class ActionPlanService
         $origin = $data['origin'] ?? 'user';
         $planEvidence = array_values(array_unique($data['evidence_refs'] ?? []));
         $this->evidence->requireEvidenceForAssistantOrigin($origin, $planEvidence);
-        $this->evidence->validateReferences($householdId, $planEvidence);
+        $this->evidence->validateReferences($user, $householdId, $planEvidence);
 
         $steps = $data['steps'] ?? [];
         if (!$steps) {
@@ -76,7 +76,7 @@ class ActionPlanService
 
                 $refs = array_values(array_unique($input['evidence_refs'] ?? $planEvidence));
                 $this->evidence->requireEvidenceForAssistantOrigin($origin, $refs);
-                $this->evidence->validateReferences($householdId, $refs);
+                $this->evidence->validateReferences($user, $householdId, $refs);
 
                 $sequence = $index + 1;
                 $stepKey = hash('sha256', $plan->id . '|' . $sequence . '|' . $type->value . '|' . json_encode($payload));

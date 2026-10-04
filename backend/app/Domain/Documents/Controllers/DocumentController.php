@@ -395,12 +395,13 @@ class DocumentController
         );
 
         $disk = Storage::disk($documentVersion->storage_disk);
+        $path = $documentVersion->storage_path;
 
         return response()->streamDownload(
-            function () use ($disk, $documentVersion): void {
-                $stream = $disk->readStream($documentVersion->storage_path);
+            static function () use ($disk, $path): void {
+                $stream = $disk->readStream($path);
 
-                if ($stream === false) {
+                if (! is_resource($stream)) {
                     abort(404);
                 }
 

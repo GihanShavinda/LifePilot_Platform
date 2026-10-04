@@ -1,0 +1,32 @@
+# P10 Acceptance Checklist
+
+- [ ] P10 migration runs after P9.
+- [ ] `household_invitations` exists.
+- [ ] `shared_resources` exists.
+- [ ] `assignments` exists.
+- [ ] `household_activities` exists.
+- [ ] Owner/Admin can invite a Member/Admin/Viewer.
+- [ ] Viewer cannot invite or manage household members.
+- [ ] Invite token is stored only as a SHA-256 hash.
+- [ ] Invitation can be accepted only by the invited email identity.
+- [ ] A resource with no SharedResource row is private.
+- [ ] Another household member cannot access a private document.
+- [ ] Explicit household sharing enables access.
+- [ ] Returning a resource to private scope revokes that access.
+- [ ] P8 evidence retrieval cannot expose another member's private document extraction.
+- [ ] P7 semantic/graph response filtering respects sharing scope.
+- [ ] P9 evidence validation respects P10 sharing scope.
+- [ ] P9 mutating executor checks write permission for existing resources.
+- [ ] Task assignment creates/updates one Assignment record.
+- [ ] Task assignment explicitly shares the task.
+- [ ] Viewer cannot be assigned an editable task.
+- [ ] Household activity records collaboration events.
+- [ ] Household notifications are generated for significant collaboration events.
+- [ ] Removing a member removes their active assignments.
+- [ ] Removed member loses household-shared access immediately.
+- [ ] `/household` renders inside AppShell.
+- [ ] Member management shows permission badges.
+- [ ] Assignment view and activity feed render.
+- [ ] `php83 artisan test --filter=P10` passes.
+- [ ] Full backend regression passes.
+- [ ] `npm run build` passes.

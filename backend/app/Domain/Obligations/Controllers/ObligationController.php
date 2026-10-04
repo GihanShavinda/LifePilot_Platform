@@ -15,18 +15,18 @@ class ObligationController {
   $membership=$request->user()->householdMemberships()->first();
   if(!$membership) throw new AuthorizationException('Household required.');
   $role=$membership->role instanceof \BackedEnum?$membership->role->value:(string)$membership->role;
-  if($write && !in_array($role,['owner','family_member'],true)) throw new AuthorizationException('Read-only household role.');
+  if($write && !in_array($role,['owner','admin','member','family_member'],true)) throw new AuthorizationException('Read-only household role.');
   return $membership->household_id;
  }
  public function index(Request $request):JsonResponse {
   $id=$this->household($request);
-  $query=Obligation::where('household_id',$id)->latest();
+  $query=Obligation::where('household_id',$id)->where('user_id',$request->user()->id)->latest();
   if($request->filled('status'))$query->where('status',$request->query('status'));
   return ApiResponse::success(['obligations'=>$query->paginate(30)]);
  }
  public function suggestions(Request $request,int $documentId,ObligationSuggestionService $suggestions):JsonResponse {
   $id=$this->household($request);
-  $doc=Document::where('household_id',$id)->with('category')->findOrFail($documentId);
+  $doc=Document::accessibleTo($request->user())->where('household_id',$id)->with('category')->findOrFail($documentId);
   $results=$suggestions->suggest($doc);
   if($results && \Illuminate\Support\Facades\Cache::add('p6-recommendation-event:'.$request->user()->id.':'.hash('sha256',json_encode($results)),1,now()->addHours(12)))event(new \App\Domain\Scheduling\Events\LifePilotUpdated($request->user()->id,'recommendation.ready',['document_id'=>$doc->id]));
   return ApiResponse::success(['suggestions'=>$results]);
@@ -43,13 +43,13 @@ class ObligationController {
  }
  public function approve(Request $request,int $id,ObligationService $service,ObligationSuggestionService $suggestions):JsonResponse {
   $household=$this->household($request,true);
-  $obligation=Obligation::where('household_id',$household)->findOrFail($id);
+  $obligation=Obligation::where('household_id',$household)->where('user_id',$request->user()->id)->findOrFail($id);
   $task=$service->approve($request->user(),$obligation);
   return ApiResponse::success(['task'=>$task->load('reminders')],201);
  }
  public function approveSuggestion(Request $request,int $documentId,ObligationSuggestionService $suggestions,ObligationService $service):JsonResponse {
   $household=$this->household($request,true);
-  $doc=Document::where('household_id',$household)->with('category')->findOrFail($documentId);
+  $doc=Document::accessibleTo($request->user())->where('household_id',$household)->with('category')->findOrFail($documentId);
   $suggested=collect($suggestions->suggest($doc))->firstWhere('dedupe_key',$request->validate(['dedupe_key'=>'required|string|size:64'])['dedupe_key']);
   if(!$suggested) return ApiResponse::error('STALE_SUGGESTION','Refresh suggestions; selected suggestion is no longer available.',409);
   // Create-and-approve is one explicit user action; no background job can invoke this endpoint.
@@ -59,7 +59,7 @@ class ObligationController {
  }
  public function dismiss(Request $request,int $id):JsonResponse {
   $h=$this->household($request,true);
-  $obligation=Obligation::where('household_id',$h)->findOrFail($id);
+  $obligation=Obligation::where('household_id',$h)->where('user_id',$request->user()->id)->findOrFail($id);
   if($obligation->status!=='suggested')return ApiResponse::error('INVALID_STATE','Only suggestions may be dismissed.',409);
   $obligation->update(['status'=>'dismissed']);
   return ApiResponse::success(['obligation'=>$obligation]);

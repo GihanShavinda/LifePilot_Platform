@@ -16,6 +16,7 @@ import { NotificationsPage } from "../features/calendar/NotificationsPage";
 import { SearchPage } from "../features/search/SearchPage";
 import { AssistantPage } from "../features/assistant/AssistantPage";
 import { ActionCenterPage } from "../features/actions/ActionCenterPage";
+import { HouseholdPage } from "../features/household/HouseholdPage";
 
 import { AppShell } from "../components/layout/AppShell";
 
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
           { path: "/search", element: <SearchPage /> },
           { path: "/assistant", element: <AssistantPage /> },
           { path: "/actions", element: <ActionCenterPage /> },
+          { path: "/household", element: <HouseholdPage /> },
           { path: "/settings", element: <SettingsPage /> },
         ],
       },

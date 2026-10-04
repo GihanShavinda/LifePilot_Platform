@@ -2,553 +2,300 @@
 
 namespace App\Domain\Finance\Controllers;
 
-use App\Domain\Finance\Models\{
-    Subscription,
-    Expense,
-    Merchant
-};
-use App\Domain\Finance\Services\{
-    FinanceAccess,
-    LifeFinanceReminderService,
-    FinanceCalculations
-};
+use App\Domain\Finance\Models\{Subscription, SubscriptionPayment, Expense, Merchant};
+use App\Domain\Finance\Services\{FinanceAccess, LifeFinanceReminderService, FinanceCalculations};
 use App\Support\ApiResponse;
-use Carbon\CarbonImmutable;
-use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\{Request, JsonResponse};
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
 
 class SubscriptionController
 {
-    public function __construct(
-        private FinanceAccess $access,
-        private LifeFinanceReminderService $reminders,
-        private FinanceCalculations $calc
-    ) {}
-
+    public function __construct(private FinanceAccess $access, private LifeFinanceReminderService $reminders, private FinanceCalculations $calc) {}
     private function rules(bool $create = true): array
     {
-        $required = $create ? 'required' : 'sometimes';
-
-        return [
-            'name' => "$required|string|max:255",
-            'provider' => "$required|string|max:255",
-            'price' => "$required|numeric|gt:0",
-            'currency' => "$required|string|size:3",
-            'billing_cycle' =>
-                "$required|in:daily,weekly,monthly,quarterly,yearly",
-            'next_billing_date' => "$required|date",
-            'renewal_type' => 'sometimes|in:automatic,manual',
-            'cancellation_deadline' => 'nullable|date',
-            'status' => 'sometimes|in:active,paused,cancelled',
-            'document_id' => 'nullable|integer',
-        ];
+        $req = $create ? 'required' : 'sometimes';
+        return ['name' => $req . '|string|max:255', 'provider' => $req . '|string|max:255', 'price' => $req . '|numeric|gt:0', 'currency' => $req . '|string|size:3', 'billing_cycle' => $req . '|in:daily,weekly,monthly,quarterly,yearly', 'next_billing_date' => $req . '|date', 'renewal_type' => 'sometimes|in:automatic,manual', 'cancellation_deadline' => 'nullable|date', 'status' => 'sometimes|in:active,paused,cancelled', 'document_id' => 'nullable|integer'];
     }
-
-    private function key(
-        string $provider,
-        string $name
-    ): string {
-        $provider = mb_strtolower(
-            preg_replace('/\s+/u', ' ', trim($provider))
-        );
-
-        $name = mb_strtolower(
-            preg_replace('/\s+/u', ' ', trim($name))
-        );
-
-        return hash(
-            'sha256',
-            $provider . '|' . $name
-        );
-    }
-
-    private function prepare(
-        array $data,
-        int $householdId
-    ): array {
-        $this->access->requireDocument(
-            $householdId,
-            $data['document_id'] ?? null
-        );
-
-        if (isset($data['currency'])) {
-            $data['currency'] = strtoupper(
-                $data['currency']
-            );
-        }
-
-        if (
-            isset($data['name']) &&
-            isset($data['provider'])
-        ) {
-            $data['dedupe_key'] = $this->key(
-                $data['provider'],
-                $data['name']
-            );
-        }
-
-        if (isset($data['provider'])) {
-            $name = trim($data['provider']);
-
-            $merchant = Merchant::firstOrCreate(
-                [
-                    'household_id' => $householdId,
-                    'normalized_name' => mb_strtolower($name),
-                ],
-                [
-                    'name' => $name,
-                ]
-            );
-
-            $data['merchant_id'] = $merchant->id;
-        }
-
-        if (
-            !empty($data['cancellation_deadline']) &&
-            !empty($data['next_billing_date']) &&
-            CarbonImmutable::parse(
-                $data['cancellation_deadline']
-            )->greaterThan(
-                CarbonImmutable::parse(
-                    $data['next_billing_date']
-                )
-            )
-        ) {
-            throw ValidationException::withMessages([
-                'cancellation_deadline' =>
-                    'Cancellation deadline must not follow the next billing date.',
-            ]);
-        }
-
-        return $data;
-    }
-
-    public function index(Request $request): JsonResponse
+    private function key(string $provider, string $name): string
     {
-        $householdId = $this->access->household($request);
-
-        return ApiResponse::success([
-            'subscriptions' => Subscription::query()
-                ->where('household_id', $householdId)
-                ->with('payments')
-                ->orderBy('next_billing_date')
-                ->paginate(50),
-        ]);
+        return hash('sha256', mb_strtolower(preg_replace('/\s+/u', ' ', trim($provider))) . '|' . mb_strtolower(preg_replace('/\s+/u', ' ', trim($name))));
     }
-
-    public function create(Request $request): JsonResponse
+    private function prepare(array $d, int $h): array
     {
-        $householdId = $this->access->household(
-            $request,
-            true
-        );
-
-        $data = $this->prepare(
-            $request->validate($this->rules()),
-            $householdId
-        );
-
-        $exists = Subscription::withTrashed()
-            ->where('household_id', $householdId)
-            ->where('dedupe_key', $data['dedupe_key'])
-            ->exists();
-
-        if ($exists) {
-            throw ValidationException::withMessages([
-                'name' =>
-                    'A subscription with this provider and name already exists.',
-            ]);
+        $this->access->requireDocument($h, $d['document_id'] ?? null);
+        if (isset($d['currency'])) $d['currency'] = strtoupper($d['currency']);
+        if (isset($d['name'], $d['provider'])) $d['dedupe_key'] = $this->key($d['provider'], $d['name']);
+        if (isset($d['provider'])) {
+            $n = trim($d['provider']);
+            $m = Merchant::firstOrCreate(['household_id' => $h, 'normalized_name' => mb_strtolower($n)], ['name' => $n]);
+            $d['merchant_id'] = $m->id;
         }
-
-        return DB::transaction(function () use (
-            $request,
-            $householdId,
-            $data
-        ) {
-            $subscription = Subscription::create(
-                array_merge(
-                    $data,
-                    [
-                        'household_id' => $householdId,
-                        'user_id' => $request->user()->id,
-                    ]
-                )
-            );
-
-            $this->reminders->subscription($subscription);
-
-            return ApiResponse::success([
-                'subscription' => $subscription->fresh(),
-            ], 201);
+        if (!empty($d['cancellation_deadline']) && !empty($d['next_billing_date']) && $d['cancellation_deadline'] > $d['next_billing_date']) throw ValidationException::withMessages(['cancellation_deadline' => 'Cancellation deadline must not follow the next billing date.']);
+        return $d;
+    }
+    public function index(Request $r): JsonResponse
+    {
+        $h = $this->access->household($r);
+        return ApiResponse::success(['subscriptions' => Subscription::where('household_id', $h)->with('payments')->orderBy('next_billing_date')->paginate(50)]);
+    }
+    public function create(Request $r): JsonResponse
+    {
+        $h = $this->access->household($r, true);
+        $d = $this->prepare($r->validate($this->rules()), $h);
+        if (Subscription::withTrashed()->where('household_id', $h)->where('dedupe_key', $d['dedupe_key'])->exists()) throw ValidationException::withMessages(['name' => 'A subscription with this provider and name already exists.']);
+        return DB::transaction(function () use ($r, $h, $d) {
+            $s = Subscription::create(array_merge($d, ['household_id' => $h, 'user_id' => $r->user()->id]));
+            $this->reminders->subscription($s);
+            return ApiResponse::success(['subscription' => $s->fresh()], 201);
         });
     }
+    public function update(Request $r, int $id): JsonResponse
+    {
+        $h = $this->access->household($r, true);
+        $s = Subscription::where('household_id', $h)->findOrFail($id);
+        $d = $r->validate($this->rules(false));
+        $d = $this->prepare(array_merge(['name' => $s->name, 'provider' => $s->provider, 'next_billing_date' => $s->next_billing_date->toDateString()], $d), $h);
+        if ($d['dedupe_key'] !== $s->dedupe_key && Subscription::withTrashed()->where('household_id', $h)->where('dedupe_key', $d['dedupe_key'])->exists()) throw ValidationException::withMessages(['name' => 'Duplicate subscription.']);
+        if (isset($d['price']) && (float)$d['price'] !== (float)$s->price) {
+            $d['previous_price'] = $s->price;
+            $d['last_price_change_at'] = now();
+        }
+        if (isset($d['next_billing_date']) && $d['next_billing_date'] !== $s->next_billing_date->toDateString()) $d['last_generated_billing_date'] = null;
+        $s->update($d);
+        if ($s->status !== 'active') $this->reminders->cancelSubscriptionTask($s);
+        else $this->reminders->subscription($s->fresh());
+        return ApiResponse::success(['subscription' => $s->fresh()]);
+    }
+    public function remove(Request $r, int $id): JsonResponse
+    {
+        $h = $this->access->household($r, true);
+        $s = Subscription::where('household_id', $h)->findOrFail($id);
+        $this->reminders->cancelSubscriptionTask($s);
+        $s->update(['status' => 'cancelled']);
+        return ApiResponse::success(['subscription' => $s->fresh(), 'note' => 'Tracking changed; no external subscription has been cancelled.']);
+    }
+    // public function recordPayment(Request $r, int $id): JsonResponse
+    // {
+    //     $h = $this->access->household($r, true);
+    //     $s = Subscription::where('household_id', $h)->findOrFail($id);
+    //     $d = $r->validate(['amount' => 'required|numeric|gt:0', 'billing_date' => 'required|date', 'document_id' => 'nullable|integer']);
+    //     $this->access->requireDocument($h, $d['document_id'] ?? null);
+    //     if ($s->payments()->where('billing_date', $d['billing_date'])->exists()) throw ValidationException::withMessages(['billing_date' => 'Payment already recorded for this billing date.']);
+    //     return DB::transaction(function () use ($r, $s, $h, $d) {
+    //         $expense = Expense::create(['household_id' => $h, 'user_id' => $r->user()->id, 'subscription_id' => $s->id, 'document_id' => $d['document_id'] ?? null, 'merchant_id' => $s->merchant_id, 'title' => $s->name . ' subscription', 'amount' => $d['amount'], 'currency' => $s->currency, 'expense_date' => $d['billing_date'], 'source' => 'subscription_confirmed']);
+    //         $payment = $s->payments()->create(['expense_id' => $expense->id, 'amount' => $d['amount'], 'currency' => $s->currency, 'billing_date' => $d['billing_date'], 'source' => 'confirmed']);
+    //         if ((float)$d['amount'] !== (float)$s->price) $s->update(['previous_price' => $s->price, 'price' => $d['amount'], 'last_price_change_at' => now()]);
+    //         if ($d['billing_date'] >= $s->next_billing_date->toDateString()) {
+    //             $next = $s->next_billing_date->toDateString();
+    //             $i = 0;
+    //             do {
+    //                 $next = $this->calc->nextDate($next, $s->billing_cycle);
+    //                 $i++;
+    //             } while ($next <= $d['billing_date'] && $i < 120);
+    //             $s->update(['next_billing_date' => $next, 'last_generated_billing_date' => null]);
+    //             $this->reminders->subscription($s->fresh());
+    //         }
+    //         return ApiResponse::success(['payment' => $payment, 'expense' => $expense], 201);
+    //     });
+    // }
+    public function recordPayment(Request $r, int $id): JsonResponse
+    {
+        $h = $this->access->household($r, true);
 
-    public function update(
-        Request $request,
-        int $id
-    ): JsonResponse {
-        $householdId = $this->access->household(
-            $request,
-            true
-        );
-
-        $subscription = Subscription::query()
-            ->where('household_id', $householdId)
+        $s = Subscription::where('household_id', $h)
             ->findOrFail($id);
 
-        $data = $request->validate(
-            $this->rules(false)
-        );
-
-        $data = $this->prepare(
-            array_merge(
-                [
-                    'name' => $subscription->name,
-                    'provider' => $subscription->provider,
-                    'next_billing_date' =>
-                        $subscription->next_billing_date
-                            ->toDateString(),
-                ],
-                $data
-            ),
-            $householdId
-        );
-
-        $duplicate = Subscription::withTrashed()
-            ->where('household_id', $householdId)
-            ->where('dedupe_key', $data['dedupe_key'])
-            ->where('id', '!=', $subscription->id)
-            ->exists();
-
-        if ($duplicate) {
-            throw ValidationException::withMessages([
-                'name' => 'Duplicate subscription.',
-            ]);
-        }
-
-        if (
-            isset($data['price']) &&
-            (float) $data['price'] !==
-                (float) $subscription->price
-        ) {
-            $data['previous_price'] =
-                $subscription->price;
-
-            $data['last_price_change_at'] = now();
-        }
-
-        if (
-            isset($data['next_billing_date']) &&
-            $data['next_billing_date'] !==
-                $subscription->next_billing_date
-                    ->toDateString()
-        ) {
-            $data['last_generated_billing_date'] = null;
-        }
-
-        $subscription->update($data);
-
-        if ($subscription->status !== 'active') {
-            $this->reminders->cancelSubscriptionTask(
-                $subscription
-            );
-        } else {
-            $this->reminders->subscription(
-                $subscription->fresh()
-            );
-        }
-
-        return ApiResponse::success([
-            'subscription' => $subscription->fresh(),
-        ]);
-    }
-
-    public function remove(
-        Request $request,
-        int $id
-    ): JsonResponse {
-        $householdId = $this->access->household(
-            $request,
-            true
-        );
-
-        $subscription = Subscription::query()
-            ->where('household_id', $householdId)
-            ->findOrFail($id);
-
-        $this->reminders->cancelSubscriptionTask(
-            $subscription
-        );
-
-        $subscription->update([
-            'status' => 'cancelled',
-        ]);
-
-        return ApiResponse::success([
-            'subscription' => $subscription->fresh(),
-            'note' =>
-                'Tracking changed; no external subscription has been cancelled.',
-        ]);
-    }
-
-    public function recordPayment(
-        Request $request,
-        int $id
-    ): JsonResponse {
-        $householdId = $this->access->household(
-            $request,
-            true
-        );
-
-        $data = $request->validate([
+        $d = $r->validate([
             'amount' => 'required|numeric|gt:0',
             'billing_date' => 'required|date',
             'document_id' => 'nullable|integer',
         ]);
 
         $this->access->requireDocument(
-            $householdId,
-            $data['document_id'] ?? null
+            $h,
+            $d['document_id'] ?? null
         );
 
         /*
-         * Normalize date input before comparing it
-         * against database values.
-         */
-        $billingDate = CarbonImmutable::parse(
-            $data['billing_date']
+        |--------------------------------------------------------------------------
+        | Normalize billing date
+        |--------------------------------------------------------------------------
+        |
+        | subscription_payments.billing_date can be stored as a datetime value
+        | such as:
+        |
+        | 2026-10-23 00:00:00
+        |
+        | while the API request normally contains:
+        |
+        | 2026-10-23
+        |
+        | whereDate() prevents the duplicate check from depending on the stored
+        | time portion and works consistently with SQLite/PostgreSQL.
+        |
+        */
+
+        $billingDate = \Carbon\Carbon::parse(
+            $d['billing_date']
         )->toDateString();
 
-        try {
-            return DB::transaction(function () use (
-                $request,
-                $householdId,
-                $id,
-                $data,
+        /*
+        |--------------------------------------------------------------------------
+        | Duplicate payment protection
+        |--------------------------------------------------------------------------
+        */
+
+        $paymentAlreadyExists = $s
+            ->payments()
+            ->whereDate(
+                'billing_date',
+                $billingDate
+            )
+            ->exists();
+
+        if ($paymentAlreadyExists) {
+            throw ValidationException::withMessages([
+                'billing_date' =>
+                    'Payment already recorded for this billing date.',
+            ]);
+        }
+
+        return DB::transaction(
+            function () use (
+                $r,
+                $s,
+                $h,
+                $d,
                 $billingDate
             ) {
                 /*
-                 * Lock the subscription row on databases
-                 * that support row-level locks.
-                 */
-                $subscription = Subscription::query()
-                    ->where('household_id', $householdId)
-                    ->lockForUpdate()
-                    ->findOrFail($id);
+                |--------------------------------------------------------------------------
+                | Create confirmed expense
+                |--------------------------------------------------------------------------
+                */
 
-                /*
-                 * Use whereDate, not where.
-                 *
-                 * A DATETIME value such as:
-                 * 2026-10-20 00:00:00
-                 *
-                 * must match the input:
-                 * 2026-10-20
-                 */
-                $alreadyRecorded = $subscription
-                    ->payments()
-                    ->whereDate(
-                        'billing_date',
-                        $billingDate
-                    )
-                    ->exists();
-
-                if ($alreadyRecorded) {
-                    throw ValidationException::withMessages([
-                        'billing_date' =>
-                            'A payment has already been recorded for this billing date.',
-                    ]);
-                }
-
-                /*
-                 * Create the associated expense only
-                 * after duplicate validation.
-                 */
                 $expense = Expense::create([
-                    'household_id' => $householdId,
-                    'user_id' => $request->user()->id,
-                    'subscription_id' => $subscription->id,
+                    'household_id' => $h,
+                    'user_id' => $r->user()->id,
+                    'subscription_id' => $s->id,
                     'document_id' =>
-                        $data['document_id'] ?? null,
-                    'merchant_id' =>
-                        $subscription->merchant_id,
+                        $d['document_id'] ?? null,
+                    'merchant_id' => $s->merchant_id,
+
                     'title' =>
-                        $subscription->name . ' subscription',
-                    'amount' => $data['amount'],
-                    'currency' => $subscription->currency,
+                        $s->name . ' subscription',
+
+                    'amount' => $d['amount'],
+                    'currency' => $s->currency,
                     'expense_date' => $billingDate,
-                    'source' => 'subscription_confirmed',
+                    'source' =>
+                        'subscription_confirmed',
                 ]);
 
-                $payment = $subscription
+                /*
+                |--------------------------------------------------------------------------
+                | Record payment
+                |--------------------------------------------------------------------------
+                */
+
+                $payment = $s
                     ->payments()
                     ->create([
                         'expense_id' => $expense->id,
-                        'amount' => $data['amount'],
-                        'currency' => $subscription->currency,
+                        'amount' => $d['amount'],
+                        'currency' => $s->currency,
                         'billing_date' => $billingDate,
                         'source' => 'confirmed',
                     ]);
 
                 /*
-                 * Track price changes.
-                 */
+                |--------------------------------------------------------------------------
+                | Detect price change
+                |--------------------------------------------------------------------------
+                */
+
                 if (
-                    (float) $data['amount'] !==
-                        (float) $subscription->price
+                    (float) $d['amount'] !==
+                    (float) $s->price
                 ) {
-                    $subscription->update([
+                    $s->update([
                         'previous_price' =>
-                            $subscription->price,
-                        'price' => $data['amount'],
-                        'last_price_change_at' => now(),
+                            $s->price,
+
+                        'price' =>
+                            $d['amount'],
+
+                        'last_price_change_at' =>
+                            now(),
                     ]);
                 }
 
                 /*
-                 * Advance billing cycle only when
-                 * the confirmed payment covers the
-                 * current or a later billing date.
-                 */
+                |--------------------------------------------------------------------------
+                | Advance billing cycle
+                |--------------------------------------------------------------------------
+                */
+
                 if (
                     $billingDate >=
-                    $subscription->next_billing_date
+                    $s->next_billing_date
                         ->toDateString()
                 ) {
-                    $next = $subscription
+                    $next = $s
                         ->next_billing_date
                         ->toDateString();
 
-                    $iterations = 0;
+                    $i = 0;
 
                     do {
-                        $next = $this->calc->nextDate(
-                            $next,
-                            $subscription->billing_cycle
-                        );
+                        $next = $this
+                            ->calc
+                            ->nextDate(
+                                $next,
+                                $s->billing_cycle
+                            );
 
-                        $iterations++;
+                        $i++;
                     } while (
                         $next <= $billingDate &&
-                        $iterations < 120
+                        $i < 120
                     );
 
-                    if ($next <= $billingDate) {
-                        throw ValidationException::withMessages([
-                            'billing_date' =>
-                                'Unable to calculate the next billing date.',
-                        ]);
-                    }
+                    $s->update([
+                        'next_billing_date' =>
+                            $next,
 
-                    $subscription->update([
-                        'next_billing_date' => $next,
-                        'last_generated_billing_date' => null,
+                        'last_generated_billing_date' =>
+                            null,
                     ]);
 
-                    $this->reminders->subscription(
-                        $subscription->fresh()
-                    );
+                    $this
+                        ->reminders
+                        ->subscription(
+                            $s->fresh()
+                        );
                 }
 
-                return ApiResponse::success([
-                    'payment' => $payment,
-                    'expense' => $expense,
-                ], 201);
-            });
-        } catch (UniqueConstraintViolationException $exception) {
-            /*
-             * Concurrent requests can pass the initial
-             * duplicate check. Retain the database unique
-             * constraint and translate this specific
-             * duplicate into a validation error.
-             */
-            $duplicateExists = Subscription::query()
-                ->where('household_id', $householdId)
-                ->whereKey($id)
-                ->whereHas(
-                    'payments',
-                    fn ($query) => $query->whereDate(
-                        'billing_date',
-                        $billingDate
-                    )
-                )
-                ->exists();
-
-            if ($duplicateExists) {
-                throw ValidationException::withMessages([
-                    'billing_date' =>
-                        'A payment has already been recorded for this billing date.',
-                ]);
+                return ApiResponse::success(
+                    [
+                        'payment' => $payment,
+                        'expense' => $expense,
+                    ],
+                    201
+                );
             }
-
-            throw $exception;
-        }
+        );
     }
-
-    public function insights(Request $request): JsonResponse
+    public function insights(Request $r): JsonResponse
     {
-        $householdId = $this->access->household($request);
-
-        $subscriptions = Subscription::query()
-            ->where('household_id', $householdId)
-            ->where('status', 'active')
-            ->get();
-
-        $renewals = $subscriptions
-            ->filter(
-                fn ($subscription) =>
-                    $subscription->next_billing_date->between(
-                        today(),
-                        today()->addDays(30)
-                    )
-            )
-            ->values();
-
-        $changed = $subscriptions
-            ->filter(
-                fn ($subscription) =>
-                    $subscription->previous_price !== null &&
-                    (float) $subscription->price !==
-                        (float) $subscription->previous_price
-            )
-            ->values();
-
-        $duplicateGroups = $subscriptions
-            ->groupBy('dedupe_key')
-            ->filter(
-                fn ($group) => $group->count() > 1
-            )
-            ->values();
-
-        /*
-         * Recurring-charge candidates are informational.
-         * Never create or cancel subscriptions automatically.
-         */
-        $candidates = Expense::query()
-            ->where('household_id', $householdId)
-            ->whereNotNull('merchant_id')
-            ->whereNull('subscription_id')
-            ->select('merchant_id', 'currency')
-            ->selectRaw('COUNT(*) as occurrence_count')
-            ->selectRaw('MIN(expense_date) as first_seen')
-            ->selectRaw('MAX(expense_date) as last_seen')
-            ->groupBy('merchant_id', 'currency')
-            ->havingRaw('COUNT(*) >= 2')
-            ->with('merchant')
-            ->get();
-
-        return ApiResponse::success([
-            'upcoming_renewals' => $renewals,
-            'price_changes' => $changed,
-            'duplicate_subscription_groups' =>
-                $duplicateGroups,
-            'recurring_charge_candidates' => $candidates,
-            'notice' =>
-                'Recurring charge patterns are suggestions only. ' .
-                'No subscription is created or cancelled automatically.',
-        ]);
+        $h = $this->access->household($r);
+        $subs = Subscription::where('household_id', $h)->where('status', 'active')->get();
+        $renewals = $subs->filter(fn($s) => $s->next_billing_date->between(today(), today()->addDays(30)))->values();
+        $changed = $subs->filter(fn($s) => $s->previous_price !== null && (float)$s->price !== (float)$s->previous_price)->values();
+        $duplicateGroups = $subs->groupBy('dedupe_key')->filter(fn($group) => $group->count() > 1)->values();
+        // Pattern candidates only. Never create or cancel a subscription based on inferred transactions.
+        $candidates = Expense::accessibleTo($r->user())->where('household_id', $h)->whereNotNull('merchant_id')->whereNull('subscription_id')->select('merchant_id', 'currency')->selectRaw('COUNT(*) as occurrence_count')->selectRaw('MIN(expense_date) as first_seen')->selectRaw('MAX(expense_date) as last_seen')->groupBy('merchant_id', 'currency')->havingRaw('COUNT(*) >= 2')->with('merchant')->get();
+        return ApiResponse::success(['upcoming_renewals' => $renewals, 'price_changes' => $changed, 'duplicate_subscription_groups' => $duplicateGroups, 'recurring_charge_candidates' => $candidates, 'notice' => 'Recurring charge patterns are suggestions only. No subscription is created or cancelled automatically.']);
     }
 }
