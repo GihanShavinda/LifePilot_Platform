@@ -5,14 +5,16 @@ import {
   useMemo,
   useState,
   type ReactNode,
-} from 'react';
+} from "react";
 
 import {
   login as loginApi,
   logout as logoutApi,
   me as meApi,
+  register as registerApi,
   type LoginPayload,
-} from './authApi';
+  type RegisterPayload,
+} from "./authApi";
 
 interface User {
   id: number;
@@ -28,48 +30,31 @@ interface AuthContextValue {
   authenticated: boolean;
 
   login: (payload: LoginPayload) => Promise<void>;
+  register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextValue | undefined>(
-  undefined
-);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-export function AuthProvider({
-  children,
-}: AuthProviderProps) {
+export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   /**
    * Retrieve currently authenticated user.
    *
-   * A 401 here is normal when the visitor has not logged in yet.
+   * 401 is normal when no authenticated session exists.
    */
   const refreshUser = async (): Promise<void> => {
     try {
       const response = await meApi();
 
-      /**
-       * Backend response:
-       *
-       * {
-       *   success: true,
-       *   data: {
-       *     user: {...}
-       *   }
-       * }
-       */
-
-      const authenticatedUser =
-        response?.data?.user ??
-        response?.user ??
-        null;
+      const authenticatedUser = response?.data?.user ?? response?.user ?? null;
 
       setUser(authenticatedUser);
     } catch {
@@ -78,40 +63,46 @@ export function AuthProvider({
   };
 
   /**
-   * Login using email/password.
+   * Register a new LifePilot account.
+   *
+   * registerApi() already performs:
+   *
+   * GET /sanctum/csrf-cookie
+   * POST /api/v1/auth/register
    */
-  const login = async (
-    payload: LoginPayload
-  ): Promise<void> => {
-    /**
-     * Important:
-     * Pass the complete object directly.
-     *
-     * {
-     *   email: "...",
-     *   password: "..."
-     * }
-     */
-    const response = await loginApi(payload);
+  const register = async (payload: RegisterPayload): Promise<void> => {
+    const response = await registerApi(payload);
 
-    const authenticatedUser =
-      response?.data?.user ??
-      response?.user ??
-      null;
+    const authenticatedUser = response?.data?.user ?? response?.user ?? null;
 
     if (authenticatedUser) {
       setUser(authenticatedUser);
     } else {
       /**
-       * Fallback:
-       * ask Laravel for the authenticated session user.
+       * Fallback in case the backend creates the authenticated
+       * session but does not return the user directly.
        */
       await refreshUser();
     }
   };
 
   /**
-   * Logout current user.
+   * Login using email and password.
+   */
+  const login = async (payload: LoginPayload): Promise<void> => {
+    const response = await loginApi(payload);
+
+    const authenticatedUser = response?.data?.user ?? response?.user ?? null;
+
+    if (authenticatedUser) {
+      setUser(authenticatedUser);
+    } else {
+      await refreshUser();
+    }
+  };
+
+  /**
+   * Logout current authenticated user.
    */
   const logout = async (): Promise<void> => {
     try {
@@ -122,18 +113,29 @@ export function AuthProvider({
   };
 
   /**
-   * Check existing Laravel session when React starts.
+   * Restore an existing Laravel/Sanctum session
+   * when React starts.
    */
   useEffect(() => {
+    let active = true;
+
     const initializeAuth = async () => {
       try {
-        await refreshUser();
+        if (active) {
+          await refreshUser();
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
     void initializeAuth();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -142,17 +144,14 @@ export function AuthProvider({
       loading,
       authenticated: user !== null,
       login,
+      register,
       logout,
       refreshUser,
     }),
-    [user, loading]
+    [user, loading],
   );
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 /**
@@ -162,9 +161,7 @@ export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error(
-      'useAuth must be used inside AuthProvider'
-    );
+    throw new Error("useAuth must be used inside AuthProvider");
   }
 
   return context;
